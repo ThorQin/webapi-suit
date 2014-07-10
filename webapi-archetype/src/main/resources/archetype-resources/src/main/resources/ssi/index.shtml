@@ -1,0 +1,21 @@
+<%@page contentType="text/html" pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html lang="zh-cn">
+    <head>
+		<title>Demo</title>
+        <%@include file="common-include.ssi"%>
+	</head>
+	<body>
+		<h1>Hello World!</h1>
+		Today is: <span id="today" style="color:red"></span>
+		
+		<!-- Query Forms -->
+		<span id="queryToday" class="tui-form"
+			  data-method="get"
+			  data-action="/api/helloWorld" 
+			  data-auto-submit="true" 
+			  data-target="today"
+			data-target-property="innerHTML">
+		</span>
+	</body>
+</html>

@@ -1,0 +1,34 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<properties>  
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<skipTests>true</skipTests>
+		<downloadSources>true</downloadSources>
+		<downloadJavadocs>true</downloadJavadocs>
+    </properties>
+
+	<groupId>org.thordev</groupId>
+	<artifactId>webapi-suit</artifactId>
+	<version>1.0-SNAPSHOT</version>
+	<packaging>pom</packaging>
+	<name>webapi-suit</name>
+	
+	<modules>
+		<module>webapi</module>
+		<module>webapi-archetype</module>
+    </modules>
+	
+	<distributionManagement> 
+		<repository> 
+			<id>nexus-releases</id> 
+			<name>Internal Releases</name> 
+			<url>http://10.63.2.111:8081/nexus/content/repositories/releases</url> 
+		</repository> 
+		<snapshotRepository> 
+			<id>nexus-snapshots</id>
+			<name>Internal Snapshots</name> 
+			<url>http://10.63.2.111:8081/nexus/content/repositories/snapshots</url> 
+		</snapshotRepository> 
+	</distributionManagement>
+</project>
