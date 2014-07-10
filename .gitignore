@@ -1,4 +1,5 @@
-.svn
+.svn/
 target/
 webapi/target/
+webapi/.svn/
 webapi-archetype/target/
