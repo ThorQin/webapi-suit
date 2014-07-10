@@ -16,6 +16,10 @@ var tui;
         return typeof undefined;
     })();
 
+    tui.undefVal = (function (undefined) {
+        return undefined;
+    })();
+
     tui.lang = (function () {
         return (navigator.language || navigator.browserLanguage || navigator.userLanguage).toLowerCase();
     })();
@@ -53,7 +57,7 @@ var tui;
     tui.uuid = (function () {
         var id = 0;
         return function () {
-            var uid = 'tid-' + id++;
+            var uid = 'tuid' + id++;
             return uid;
         };
     })();
@@ -2074,6 +2078,259 @@ var tui;
 (function (tui) {
     /// <reference path="tui.ctrl.control.ts" />
     (function (_ctrl) {
+        var FormAgent = (function (_super) {
+            __extends(FormAgent, _super);
+            function FormAgent(el) {
+                _super.call(this, "span", FormAgent.CLASS, el);
+                var parent = this[0].parentElement;
+                while (parent) {
+                    if ($(parent).hasClass("tui-form")) {
+                        this.ajaxForm($(parent).attr("id"));
+                        break;
+                    }
+                }
+                if (!this.hasAttr("data-target-property")) {
+                    this.targetProperty("value");
+                }
+            }
+            FormAgent.prototype.validate = function () {
+                var param = { valid: true };
+                if (this.fire("validate", param) === false)
+                    return param.valid;
+                var target = this.target();
+                var isGroup = this.isGroup();
+                if (!target)
+                    return true;
+                if (isGroup) {
+                    var validator = this.groupValidator();
+                    if (!validator)
+                        return true;
+                    var controls = $("." + _ctrl.Radiobox.CLASS + "[data-group='" + target + "'],." + _ctrl.Checkbox.CLASS + "[data-group='" + target + "']");
+                    var values = [];
+                    controls.each(function (index, elem) {
+                        if (tui.parseBoolean($(elem).attr("data-checked")))
+                            values.push($(elem).attr("data-value"));
+                    });
+                    var valid = true;
+                    for (var k in validator) {
+                        if (k && validator.hasOwnProperty(k)) {
+                            if (k.substr(0, 5) === "*max:") {
+                                var imax = parseFloat(k.substr(5));
+                                if (isNaN(imax))
+                                    throw new Error("Invalid validator: '*max:...' must follow a number");
+                                var ival = values.length;
+                                if (ival > imax) {
+                                    valid = false;
+                                }
+                            } else if (k.substr(0, 5) === "*min:") {
+                                var imin = parseFloat(k.substr(5));
+                                if (isNaN(imin))
+                                    throw new Error("Invalid validator: '*min:...' must follow a number");
+                                var ival = values.length;
+                                if (ival < imin) {
+                                    valid = false;
+                                }
+                            } else {
+                                valid = values.indexOf(k) >= 0;
+                            }
+                            if (!valid) {
+                                controls.each(function (index, elem) {
+                                    var ctrl = elem["_ctrl"];
+                                    if (ctrl && typeof ctrl.notify === "function")
+                                        ctrl.notify(validator[k]);
+                                });
+                                break;
+                            }
+                        }
+                    }
+                    return valid;
+                } else {
+                    var elem = document.getElementById(target);
+                    if (elem && elem["_ctrl"]) {
+                        var ctrl = elem["_ctrl"];
+                        if (typeof ctrl.validate === "function") {
+                            return ctrl.validate();
+                        }
+                    }
+                    return true;
+                }
+            };
+
+            FormAgent.prototype.target = function (val) {
+                if (typeof val !== tui.undef) {
+                    this.attr("data-target", val);
+                    return this;
+                } else
+                    return this.attr("data-target");
+            };
+
+            FormAgent.prototype.targetProperty = function (val) {
+                if (typeof val !== tui.undef) {
+                    this.attr("data-target-property", val);
+                    return this;
+                } else
+                    return this.attr("data-target-property");
+            };
+
+            FormAgent.prototype.groupValidator = function (val) {
+                if (typeof val === "object" && val) {
+                    this.attr("data-group-validator", JSON.stringify(val));
+                    return this;
+                } else if (val === null) {
+                    this.removeAttr("data-group-validator");
+                    return this;
+                } else {
+                    var strval = this.attr("data-group-validator");
+                    if (strval === null) {
+                        return null;
+                    } else {
+                        try  {
+                            val = eval("(" + strval + ")");
+                            if (typeof val !== "object")
+                                return null;
+                            else
+                                return val;
+                        } catch (err) {
+                            return null;
+                        }
+                    }
+                }
+            };
+
+            FormAgent.prototype.isGroup = function (val) {
+                if (typeof val !== tui.undef) {
+                    this.is("data-is-group", !!val);
+                    return this;
+                } else
+                    return this.is("data-is-group");
+            };
+
+            FormAgent.prototype.value = function (val) {
+                var property = this.targetProperty();
+                var target = this.target();
+                var isGroup = this.isGroup();
+                if (typeof val !== tui.undef) {
+                    var param = { value: val };
+                    if (this.fire("setvalue", param) === false)
+                        return this;
+                    if (!target) {
+                        this.attr("data-value", JSON.stringify(val));
+                        return this;
+                    }
+                    if (isGroup) {
+                        var controls = $("." + _ctrl.Radiobox.CLASS + "[data-group='" + target + "'],." + _ctrl.Checkbox.CLASS + "[data-group='" + target + "']");
+                        var values;
+                        if (val && typeof val.length === "number")
+                            values = val;
+                        else if (val === null)
+                            values = [];
+                        else
+                            values = [val];
+
+                        controls.each(function (index, elem) {
+                            var ctrl = elem["_ctrl"];
+                            if (typeof ctrl[property] === "function") {
+                                if (values.indexOf(ctrl[property]()) >= 0) {
+                                    ctrl.checked(true);
+                                } else
+                                    ctrl.checked(false);
+                            }
+                        });
+                    } else {
+                        var elem = document.getElementById(target);
+                        if (elem && elem["_ctrl"]) {
+                            var ctrl = elem["_ctrl"];
+                            if (typeof ctrl[property] === "function") {
+                                ctrl[property](val);
+                            }
+                        } else if (elem) {
+                            if (typeof elem[property] === "function") {
+                                elem[property](val);
+                            } else {
+                                elem[property] = val;
+                            }
+                        }
+                    }
+                    return this;
+                } else {
+                    if (!target) {
+                        var strval = this.attr("data-value");
+                        if (strval === null) {
+                            return null;
+                        } else {
+                            try  {
+                                return eval("(" + strval + ")");
+                            } catch (err) {
+                                return null;
+                            }
+                        }
+                    }
+                    var param = { value: null };
+                    if (this.fire("getvalue", param) === false)
+                        return param.value;
+                    if (isGroup) {
+                        var controls = $("." + _ctrl.Radiobox.CLASS + "[data-group='" + target + "']");
+                        var values = [];
+                        if (controls.length > 0) {
+                            controls.each(function (index, elem) {
+                                var ctrl = elem["_ctrl"];
+                                if (ctrl) {
+                                    if (typeof ctrl.checked === "function" && ctrl.checked() && typeof ctrl[property] === "function") {
+                                        values.push(ctrl[property]());
+                                    }
+                                }
+                            });
+                            if (values.length > 0)
+                                return values[0];
+                            else
+                                return null;
+                        } else {
+                            controls = $("." + _ctrl.Checkbox.CLASS + "[data-group='" + target + "']");
+                            controls.each(function (index, elem) {
+                                var ctrl = elem["_ctrl"];
+                                if (ctrl) {
+                                    if (typeof ctrl.checked === "function" && ctrl.checked() && typeof ctrl[property] === "function") {
+                                        values.push(ctrl[property]());
+                                    }
+                                }
+                            });
+                            return values;
+                        }
+                    } else {
+                        var elem = document.getElementById(target);
+                        if (elem && elem["_ctrl"]) {
+                            var ctrl = elem["_ctrl"];
+                            if (typeof ctrl[property] === "function") {
+                                return ctrl[property]();
+                            }
+                        } else if (elem) {
+                            if (typeof elem[property] === "function") {
+                                return elem[property]();
+                            } else {
+                                return elem[property];
+                            }
+                        }
+                        return null;
+                    }
+                }
+            };
+            FormAgent.CLASS = "tui-form-agent";
+            return FormAgent;
+        })(_ctrl.Control);
+        _ctrl.FormAgent = FormAgent;
+
+        function formAgent(param) {
+            return tui.ctrl.control(param, FormAgent);
+        }
+        _ctrl.formAgent = formAgent;
+        tui.ctrl.registerInitCallback(FormAgent.CLASS, formAgent);
+    })(tui.ctrl || (tui.ctrl = {}));
+    var ctrl = tui.ctrl;
+})(tui || (tui = {}));
+var tui;
+(function (tui) {
+    /// <reference path="tui.ctrl.formagent.ts" />
+    (function (_ctrl) {
         var Form = (function (_super) {
             __extends(Form, _super);
             function Form(el) {
@@ -2090,6 +2347,16 @@ var tui;
                 }
                 if (!this.hasAttr("data-show-error")) {
                     this.isShowError(true);
+                }
+
+                if (this.id() === null)
+                    this.id(tui.uuid());
+
+                for (var i = 0; i < this[0].childNodes.length; i++) {
+                    if (this[0].childNodes[i].nodeName.toLowerCase() === "span") {
+                        var agent = tui.ctrl.formAgent(this[0].childNodes[i]);
+                        agent.ajaxForm(this.id());
+                    }
                 }
 
                 var self = this;
@@ -2155,10 +2422,26 @@ var tui;
                     return this.attr("data-target-property");
             };
 
+            Form.prototype.targetRedirect = function (val) {
+                if (typeof val === "string") {
+                    this.attr("data-target-redirect", val);
+                    return this;
+                } else
+                    return this.attr("data-target-redirect");
+            };
+
+            Form.prototype.targetSubmitForm = function (val) {
+                if (typeof val === "string") {
+                    this.attr("data-target-submit-form", val);
+                    return this;
+                } else
+                    return this.attr("data-target-submit-form");
+            };
+
             Form.prototype.validate = function () {
                 var id = this.id();
                 if (!id) {
-                    return false;
+                    return true;
                 }
                 var valid = true;
                 $("[data-ajax-form='" + id + "']").each(function (index, elem) {
@@ -2169,13 +2452,19 @@ var tui;
                 return valid;
             };
 
+            Form.prototype.immediateValue = function (val) {
+                if (typeof val !== tui.undef) {
+                    this._immediateValue = val;
+                    return this;
+                } else
+                    return this._immediateValue;
+            };
+
             Form.prototype.value = function (val) {
                 if (typeof val !== tui.undef) {
                     // Dispatch data to other controls
                     var id = this.id();
-                    if (!id)
-                        return this;
-                    $("[data-ajax-form='" + id + "']").each(function (index, elem) {
+                    id && $("[data-ajax-form='" + id + "']").each(function (index, elem) {
                         var field;
                         if (this._ctrl) {
                             field = this._ctrl.ajaxField();
@@ -2208,10 +2497,7 @@ var tui;
 
                     // Collect all fields from other controls
                     var id = this.id();
-                    if (!id) {
-                        return null;
-                    }
-                    $("[data-ajax-form='" + id + "']").each(function (index, elem) {
+                    id && $("[data-ajax-form='" + id + "']").each(function (index, elem) {
                         var field;
                         var val;
                         if (this._ctrl) {
@@ -2243,6 +2529,20 @@ var tui;
                 }
             };
 
+            Form.prototype.clear = function () {
+                this._immediateValue = tui.undefVal;
+                var id = this.id();
+                id && $("[data-ajax-form='" + id + "']").each(function (index, elem) {
+                    if (elem._ctrl) {
+                        if (typeof elem._ctrl.value === "function")
+                            elem._ctrl.value(null);
+                    } else {
+                        $(elem).attr("data-value", "");
+                        $(elem).removeAttr("data-value");
+                    }
+                });
+            };
+
             Form.prototype.submit = function () {
                 if (!this.validate())
                     return;
@@ -2252,7 +2552,9 @@ var tui;
                 var id = this.id();
                 if (!id)
                     return;
-                var data = this.value();
+                var data = this.immediateValue();
+                if (typeof data === tui.undef)
+                    data = this.value();
                 if (this.fire("submit", { id: this.id(), data: data }) === false)
                     return;
                 var self = this;
@@ -2276,6 +2578,11 @@ var tui;
                             return;
                         }
                         if (status === "success") {
+                            var targetRedirect = self.targetRedirect();
+                            if (targetRedirect) {
+                                window.location.assign(targetRedirect);
+                                return;
+                            }
                             var target = self.target();
                             var property = self.targetProperty();
                             if (target) {
@@ -2292,6 +2599,11 @@ var tui;
                                         target[property] = jqXHR.responseText;
                                     }
                                 }
+                            }
+                            var targetSubmitForm = self.targetSubmitForm();
+                            if (targetSubmitForm) {
+                                var form = tui.ctrl.form(targetSubmitForm);
+                                form && form.submit();
                             }
                         } else {
                             if (self.isShowError())
@@ -2960,6 +3272,14 @@ var tui;
                     return this;
                 } else
                     return this._time;
+            };
+
+            Calendar.prototype.value = function (t) {
+                if (t === null) {
+                    this.time(tui.today());
+                    return this;
+                }
+                return this.time(t);
             };
             Calendar.prototype.prevMonth = function () {
                 var y = this.year(), m = this.month(), d = this.day();
@@ -4304,7 +4624,9 @@ var tui;
             };
 
             Table.prototype.value = function (data) {
-                if (data) {
+                if (data === null) {
+                    return this.data([]);
+                } else if (data) {
                     return this.data(data);
                 } else {
                     var result = [];
@@ -5263,7 +5585,9 @@ var tui;
             };
 
             Grid.prototype.value = function (data) {
-                if (data) {
+                if (data === null) {
+                    return this.data([]);
+                } else if (data) {
                     return this.data(data);
                 } else {
                     var result = [];
@@ -5816,7 +6140,9 @@ var tui;
 
             List.prototype.value = function (keys) {
                 if (typeof keys !== tui.undef) {
-                    this.checkItems(keys);
+                    this.uncheckAllItems();
+                    if (keys != null)
+                        this.checkItems(keys);
                     return this;
                 } else {
                     var items = this.checkedItems();
@@ -6590,15 +6916,17 @@ var tui;
             Input.prototype.value = function (val) {
                 var type = this.type();
                 if (typeof val !== tui.undef) {
-                    if (type === "calendar") {
+                    if (val == null) {
+                        this.removeAttr("data-value");
+                        this.attr("data-text", "");
+                    } else if (type === "calendar") {
                         if (typeof val === "string") {
                             try  {
                                 val = tui.parseDate(val);
                             } catch (e) {
                                 val = null;
                             }
-                        }
-                        if (val instanceof Date) {
+                        } else if (val instanceof Date) {
                             this.attr("data-value", tui.formatDate(val, "yyyy-MM-dd"));
                             this.attr("data-text", tui.formatDate(val, tui.str("yyyy-MM-dd")));
                             this._invalid = false;
@@ -6966,8 +7294,13 @@ var tui;
 
             TextArea.prototype.value = function (val) {
                 if (typeof val !== tui.undef) {
-                    this.attr("data-text", val);
-                    this.attr("data-value", val);
+                    if (val === null) {
+                        this.attr("data-text", "");
+                        this.attr("data-value", "");
+                    } else {
+                        this.attr("data-text", val);
+                        this.attr("data-value", val);
+                    }
                     this._invalid = false;
                     this.refresh();
                     return this;
@@ -7066,257 +7399,6 @@ var tui;
         _ctrl.textarea = textarea;
 
         tui.ctrl.registerInitCallback(TextArea.CLASS, textarea);
-    })(tui.ctrl || (tui.ctrl = {}));
-    var ctrl = tui.ctrl;
-})(tui || (tui = {}));
-var tui;
-(function (tui) {
-    /// <reference path="tui.ctrl.form.ts" />
-    (function (_ctrl) {
-        var FormAgent = (function (_super) {
-            __extends(FormAgent, _super);
-            function FormAgent(el) {
-                _super.call(this, "span", FormAgent.CLASS, el);
-                var parent = this[0].parentElement;
-                while (parent) {
-                    if ($(parent).hasClass("tui-form")) {
-                        this.ajaxForm($(parent).attr("id"));
-                        break;
-                    }
-                }
-                if (!this.hasAttr("data-target-property")) {
-                    this.targetProperty("value");
-                }
-            }
-            FormAgent.prototype.validate = function () {
-                var param = { valid: true };
-                if (this.fire("validate", param) === false)
-                    return param.valid;
-                var target = this.target();
-                var isGroup = this.isGroup();
-                if (!target)
-                    return true;
-                if (isGroup) {
-                    var validator = this.groupValidator();
-                    if (!validator)
-                        return true;
-                    var controls = $("." + _ctrl.Radiobox.CLASS + "[data-group='" + target + "'],." + _ctrl.Checkbox.CLASS + "[data-group='" + target + "']");
-                    var values = [];
-                    controls.each(function (index, elem) {
-                        if (tui.parseBoolean($(elem).attr("data-checked")))
-                            values.push($(elem).attr("data-value"));
-                    });
-                    var valid = true;
-                    for (var k in validator) {
-                        if (k && validator.hasOwnProperty(k)) {
-                            if (k.substr(0, 5) === "*max:") {
-                                var imax = parseFloat(k.substr(5));
-                                if (isNaN(imax))
-                                    throw new Error("Invalid validator: '*max:...' must follow a number");
-                                var ival = values.length;
-                                if (ival > imax) {
-                                    valid = false;
-                                }
-                            } else if (k.substr(0, 5) === "*min:") {
-                                var imin = parseFloat(k.substr(5));
-                                if (isNaN(imin))
-                                    throw new Error("Invalid validator: '*min:...' must follow a number");
-                                var ival = values.length;
-                                if (ival < imin) {
-                                    valid = false;
-                                }
-                            } else {
-                                valid = values.indexOf(k) >= 0;
-                            }
-                            if (!valid) {
-                                controls.each(function (index, elem) {
-                                    var ctrl = elem["_ctrl"];
-                                    if (ctrl && typeof ctrl.notify === "function")
-                                        ctrl.notify(validator[k]);
-                                });
-                                break;
-                            }
-                        }
-                    }
-                    return valid;
-                } else {
-                    var elem = document.getElementById(target);
-                    if (elem && elem["_ctrl"]) {
-                        var ctrl = elem["_ctrl"];
-                        if (typeof ctrl.validate === "function") {
-                            return ctrl.validate();
-                        }
-                    }
-                    return true;
-                }
-            };
-
-            FormAgent.prototype.target = function (val) {
-                if (typeof val !== tui.undef) {
-                    this.attr("data-target", val);
-                    return this;
-                } else
-                    return this.attr("data-target");
-            };
-
-            FormAgent.prototype.targetProperty = function (val) {
-                if (typeof val !== tui.undef) {
-                    this.attr("data-target-property", val);
-                    return this;
-                } else
-                    return this.attr("data-target-property");
-            };
-
-            FormAgent.prototype.groupValidator = function (val) {
-                if (typeof val === "object" && val) {
-                    this.attr("data-group-validator", JSON.stringify(val));
-                    return this;
-                } else if (val === null) {
-                    this.removeAttr("data-group-validator");
-                    return this;
-                } else {
-                    var strval = this.attr("data-group-validator");
-                    if (strval === null) {
-                        return null;
-                    } else {
-                        try  {
-                            val = eval("(" + strval + ")");
-                            if (typeof val !== "object")
-                                return null;
-                            else
-                                return val;
-                        } catch (err) {
-                            return null;
-                        }
-                    }
-                }
-            };
-
-            FormAgent.prototype.isGroup = function (val) {
-                if (typeof val !== tui.undef) {
-                    this.is("data-is-group", !!val);
-                    return this;
-                } else
-                    return this.is("data-is-group");
-            };
-
-            FormAgent.prototype.value = function (val) {
-                var property = this.targetProperty();
-                var target = this.target();
-                var isGroup = this.isGroup();
-                if (typeof val !== tui.undef) {
-                    var param = { value: val };
-                    if (this.fire("setvalue", param) === false)
-                        return this;
-                    if (!target) {
-                        this.attr("data-value", JSON.stringify(val));
-                        return this;
-                    }
-                    if (isGroup) {
-                        var controls = $("." + _ctrl.Radiobox.CLASS + "[data-group='" + target + "'],." + _ctrl.Checkbox.CLASS + "[data-group='" + target + "']");
-                        var values;
-                        if (val && typeof val.length === "number")
-                            values = val;
-                        else
-                            values = [val];
-
-                        controls.each(function (index, elem) {
-                            var ctrl = elem["_ctrl"];
-                            if (typeof ctrl[property] === "function") {
-                                if (values.indexOf(ctrl[property]()) >= 0) {
-                                    ctrl.checked(true);
-                                } else
-                                    ctrl.checked(false);
-                            }
-                        });
-                    } else {
-                        var elem = document.getElementById(target);
-                        if (elem && elem["_ctrl"]) {
-                            var ctrl = elem["_ctrl"];
-                            if (typeof ctrl[property] === "function") {
-                                ctrl[property](val);
-                            }
-                        } else if (elem) {
-                            if (typeof elem[property] === "function") {
-                                elem[property](val);
-                            } else {
-                                elem[property] = val;
-                            }
-                        }
-                    }
-                    return this;
-                } else {
-                    if (!target) {
-                        var strval = this.attr("data-value");
-                        if (strval === null) {
-                            return null;
-                        } else {
-                            try  {
-                                return eval("(" + strval + ")");
-                            } catch (err) {
-                                return null;
-                            }
-                        }
-                    }
-                    var param = { value: null };
-                    if (this.fire("getvalue", param) === false)
-                        return param.value;
-                    if (isGroup) {
-                        var controls = $("." + _ctrl.Radiobox.CLASS + "[data-group='" + target + "']");
-                        var values = [];
-                        if (controls.length > 0) {
-                            controls.each(function (index, elem) {
-                                var ctrl = elem["_ctrl"];
-                                if (ctrl) {
-                                    if (typeof ctrl.checked === "function" && ctrl.checked() && typeof ctrl[property] === "function") {
-                                        values.push(ctrl[property]());
-                                    }
-                                }
-                            });
-                            if (values.length > 0)
-                                return values[0];
-                            else
-                                return null;
-                        } else {
-                            controls = $("." + _ctrl.Checkbox.CLASS + "[data-group='" + target + "']");
-                            controls.each(function (index, elem) {
-                                var ctrl = elem["_ctrl"];
-                                if (ctrl) {
-                                    if (typeof ctrl.checked === "function" && ctrl.checked() && typeof ctrl[property] === "function") {
-                                        values.push(ctrl[property]());
-                                    }
-                                }
-                            });
-                            return values;
-                        }
-                    } else {
-                        var elem = document.getElementById(target);
-                        if (elem && elem["_ctrl"]) {
-                            var ctrl = elem["_ctrl"];
-                            if (typeof ctrl[property] === "function") {
-                                return ctrl[property]();
-                            }
-                        } else if (elem) {
-                            if (typeof elem[property] === "function") {
-                                return elem[property]();
-                            } else {
-                                return elem[property];
-                            }
-                        }
-                        return null;
-                    }
-                }
-            };
-            FormAgent.CLASS = "tui-form-agent";
-            return FormAgent;
-        })(_ctrl.Control);
-        _ctrl.FormAgent = FormAgent;
-
-        function formAgent(param) {
-            return tui.ctrl.control(param, FormAgent);
-        }
-        _ctrl.formAgent = formAgent;
-        tui.ctrl.registerInitCallback(FormAgent.CLASS, formAgent);
     })(tui.ctrl || (tui.ctrl = {}));
     var ctrl = tui.ctrl;
 })(tui || (tui = {}));
