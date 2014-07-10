@@ -43,6 +43,7 @@ public class FileManager {
 	private final Map<String, String> mime = new HashMap<String, String>() {
 		private static final long serialVersionUID = 0L;
 		{
+			put("txt", "text/plain");
 			put("jpeg", "image/jpeg");
 			put("jpg", "image/jpeg");
 			put("png", "image/png");
