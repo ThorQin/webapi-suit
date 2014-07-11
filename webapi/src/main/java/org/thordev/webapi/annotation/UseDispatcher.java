@@ -40,7 +40,7 @@ public @interface UseDispatcher {
 	String monitor() default "";
 	String publish() default "";
 	/**
-	 * If need publisher auto refresh then set this field > 0
+	 * If need publisher auto refresh then set this field &gt; 0
 	 * @return 
 	 */
 	long refreshPeriod() default 0;
