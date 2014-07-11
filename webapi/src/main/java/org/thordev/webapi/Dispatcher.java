@@ -181,7 +181,7 @@ public final class Dispatcher extends HttpServlet {
 		try {
 			String monitor = config.getInitParameter("monitor");
 			String publish = config.getInitParameter("publish");
-			String rootPath = config.getServletContext().getRealPath(config.getServletContext().getContextPath());
+			String rootPath = config.getServletContext().getRealPath("/");
 			monitor = rootPath + monitor;
 			publish = rootPath + publish;
 			String refreshPeriod = config.getInitParameter("refreshPeriod");
