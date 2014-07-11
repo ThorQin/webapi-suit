@@ -1,9 +1,17 @@
 package org.thordev.webapi.database;
 
+import com.jolbox.bonecp.BoneCPDataSource;
+import java.io.IOException;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.lang.reflect.Field;
+import java.security.InvalidParameterException;
 import java.sql.Array;
 import java.sql.CallableStatement;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -12,17 +20,10 @@ import java.sql.Struct;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import com.jolbox.bonecp.BoneCPDataSource;
-import java.io.IOException;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-import java.sql.DriverManager;
-import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -225,6 +226,32 @@ public class DBStore {
 		public String[] head;
 		public List<Object[]> data;
 		public Integer length;
+		private Map<String, Integer> headMapping = null;
+		private void buildHeadMapping() {
+			if (headMapping == null) {
+				headMapping = new HashMap<>();
+				for(int i = 0; i < head.length; i++) {
+					String colName = head[i];
+					headMapping.put(colName, i);
+				}
+			}
+		}
+		public Object getValue(Object[] row, String column) {
+			buildHeadMapping();
+			Integer pos = headMapping.get(column);
+			if (pos != null) {
+				return row[pos];
+			} else
+				throw new InvalidParameterException("Column '" + column + "' doesn't exist!");
+		}
+		public void setValue(Object[] row, String column, Object value) {
+			buildHeadMapping();
+			Integer pos = headMapping.get(column);
+			if (pos != null) {
+				row[pos] = value;
+			} else
+				throw new InvalidParameterException("Column '" + column + "' doesn't exist!");
+		}
 	}
 	
 	@Retention(RetentionPolicy.RUNTIME)
