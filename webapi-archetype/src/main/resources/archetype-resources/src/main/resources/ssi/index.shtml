@@ -12,8 +12,8 @@
 		<!-- Query Forms -->
 		<span id="queryToday" class="tui-form"
 			  data-method="get"
-			  data-action="/api/helloWorld" 
-			  data-auto-submit="true" 
+			  data-action="<%context%>/api/helloWorld"
+			  data-auto-submit="true"
 			  data-target="today"
 			data-target-property="innerHTML">
 		</span>
