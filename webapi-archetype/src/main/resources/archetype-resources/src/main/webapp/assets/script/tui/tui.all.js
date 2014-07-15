@@ -392,6 +392,12 @@ var tui;
     }
     tui.isPosterity = isPosterity;
 
+    function isFireInside(elem, event) {
+        var target = event.target || event.srcElement;
+        return isPosterity(elem, target);
+    }
+    tui.isFireInside = isFireInside;
+
     /**
     * Detect whether the element is inside the document
     * @param {type} elem
@@ -2643,24 +2649,7 @@ var tui;
 
                 this.disabled(this.disabled());
                 this.selectable(false);
-                this.exposeEvents("mousedown mouseup mousemove mouseenter mouseleave");
-
-                $(this[0]).on("click", function (e) {
-                    if (_this.disabled())
-                        return;
-                    if (_this.fire("click", { "ctrl": _this[0], "event": e }) === false)
-                        return;
-
-                    if (tui.fire(_this.id(), { "ctrl": _this[0], "event": e }) === false)
-                        return;
-
-                    var formId = _this.submitForm();
-                    if (formId) {
-                        var form = tui.ctrl.form(formId);
-                        form && form.submit();
-                    }
-                });
-
+                this.exposeEvents("mousedown mouseup mousemove mouseenter mouseleave keydown keyup");
                 $(this[0]).on("mousedown", function (e) {
                     if (_this.disabled())
                         return;
@@ -2668,6 +2657,8 @@ var tui;
                     var self = _this;
                     function releaseMouse(e) {
                         self.actived(false);
+                        if (tui.isFireInside(self[0], e))
+                            self.fireClick(e);
                         $(document).off("mouseup", releaseMouse);
                     }
                     $(document).on("mouseup", releaseMouse);
@@ -2676,36 +2667,43 @@ var tui;
                 $(this[0]).on("keydown", function (e) {
                     if (_this.disabled())
                         return;
-                    var isButton = _this[0].nodeName.toLowerCase() === "button";
                     if (e.keyCode === 32) {
                         _this.actived(true);
-                        if (!isButton)
-                            e.preventDefault();
+                        e.preventDefault();
                     }
-                    _this.fire("keydown", { "ctrl": _this[0], "event": e });
-                    if (e.keyCode === 13 && !isButton) {
+                    if (e.keyCode === 13) {
                         e.preventDefault();
                         e.type = "click";
-                        _this.fire("click", { "ctrl": _this[0], "event": e });
-                        tui.fire(_this.id(), { "ctrl": _this[0], "event": e });
+                        setTimeout(function () {
+                            _this.fireClick(e);
+                        }, 100);
                     }
                 });
 
                 $(this[0]).on("keyup", function (e) {
                     if (_this.disabled())
                         return;
-                    var isButton = _this[0].nodeName.toLowerCase() === "button";
                     if (e.keyCode === 32) {
                         _this.actived(false);
-                    }
-                    _this.fire("keyup", { "ctrl": _this[0], "event": e });
-                    if (e.keyCode === 32 && !isButton) {
                         e.type = "click";
-                        _this.fire("click", { "ctrl": _this[0], "event": e });
-                        tui.fire(_this.id(), { "ctrl": _this[0], "event": e });
+                        setTimeout(function () {
+                            _this.fireClick(e);
+                        }, 50);
                     }
                 });
             }
+            Button.prototype.fireClick = function (e) {
+                if (this.fire("click", { "ctrl": this[0], "event": e }) === false)
+                    return;
+                if (tui.fire(this.id(), { "ctrl": this[0], "event": e }) === false)
+                    return;
+                var formId = this.submitForm();
+                if (formId) {
+                    var form = tui.ctrl.form(formId);
+                    form && form.submit();
+                }
+            };
+
             Button.prototype.submitForm = function (formId) {
                 if (typeof formId === "string") {
                     this.attr("data-submit-form", formId);
@@ -2732,14 +2730,15 @@ var tui;
             };
 
             Button.prototype.disabled = function (val) {
-                var result = this.is("data-disabled", val);
                 if (typeof val === "boolean") {
+                    this.is("data-disabled", val);
                     if (val)
                         this.removeAttr("tabIndex");
                     else
                         this.attr("tabIndex", "0");
-                }
-                return result;
+                    return this;
+                } else
+                    return this.is("data-disabled");
             };
             Button.CLASS = "tui-button";
             return Button;
@@ -2770,67 +2769,68 @@ var tui;
                 _super.call(this, "a", Checkbox.CLASS, el);
 
                 this.disabled(this.disabled());
+                this.selectable(false);
+                this.exposeEvents("mouseup mousedown mousemove mouseenter mouseleave keyup keydown");
 
-                this.exposeEvents("mousedown mouseup mousemove mouseenter mouseleave");
-                $(this[0]).on("click", function (e) {
-                    if (_this.disabled())
-                        return;
-                    if (_this.fire("click", { "ctrl": _this[0], "event": e }) === false)
-                        return;
-                    if (tui.fire(_this.id(), { "ctrl": _this[0], "event": e }) === false)
-                        return;
-                    var formId = _this.submitForm();
-                    if (formId) {
-                        var form = tui.ctrl.form(formId);
-                        form && form.submit();
-                    }
-                });
                 $(this[0]).on("mousedown", function (e) {
                     if (_this.disabled())
                         return;
-                    if (tui.ffVer > 0)
-                        _this.focus();
+                    _this.actived(true);
+                    var self = _this;
+                    function releaseMouse(e) {
+                        self.actived(false);
+                        if (tui.isFireInside(self[0], e)) {
+                            self.checked(!self.checked());
+                            e.type = "click";
+                            self.fireClick(e);
+                        }
+                        $(document).off("mouseup", releaseMouse);
+                    }
+                    $(document).on("mouseup", releaseMouse);
                 });
-                $(this[0]).on("mouseup", function (e) {
-                    if (_this.disabled())
-                        return;
-                    _this.checked(!_this.checked());
-                });
+
                 $(this[0]).on("keydown", function (e) {
                     if (_this.disabled())
                         return;
-                    var isButton = _this[0].nodeName.toLowerCase() === "button";
                     if (e.keyCode === 32) {
                         _this.actived(true);
-                        if (!isButton)
-                            e.preventDefault();
+                        e.preventDefault();
                     }
-                    _this.fire("keydown", { "ctrl": _this[0], "event": e });
-                    if (e.keyCode === 13 && !isButton) {
+                    if (e.keyCode === 13) {
                         e.preventDefault();
                         e.type = "click";
                         _this.checked(!_this.checked());
-                        _this.fire("click", { "ctrl": _this[0], "event": e });
-                        tui.fire(_this.id(), { "ctrl": _this[0], "event": e });
+                        setTimeout(function () {
+                            _this.fireClick(e);
+                        }, 100);
                     }
                 });
 
                 $(this[0]).on("keyup", function (e) {
                     if (_this.disabled())
                         return;
-                    var isButton = _this[0].nodeName.toLowerCase() === "button";
                     if (e.keyCode === 32) {
                         _this.actived(false);
                         _this.checked(!_this.checked());
-                    }
-                    _this.fire("keyup", { "ctrl": _this[0], "event": e });
-                    if (e.keyCode === 32 && !isButton) {
                         e.type = "click";
-                        _this.fire("click", { "ctrl": _this[0], "event": e });
-                        tui.fire(_this.id(), { "ctrl": _this[0], "event": e });
+                        setTimeout(function () {
+                            _this.fireClick(e);
+                        }, 50);
                     }
                 });
             }
+            Checkbox.prototype.fireClick = function (e) {
+                if (this.fire("click", { "ctrl": this[0], "event": e }) === false)
+                    return;
+                if (tui.fire(this.id(), { "ctrl": this[0], "event": e }) === false)
+                    return;
+                var formId = this.submitForm();
+                if (formId) {
+                    var form = tui.ctrl.form(formId);
+                    form && form.submit();
+                }
+            };
+
             Checkbox.prototype.checked = function (val) {
                 if (typeof val === tui.undef) {
                     return _super.prototype.checked.call(this);
@@ -2839,6 +2839,13 @@ var tui;
                     this.unNotifyGroup();
                     return this;
                 }
+            };
+
+            Checkbox.prototype.triState = function (val) {
+                if (typeof val === "boolean") {
+                    this.is("data-tri-state", val);
+                } else
+                    return this.is("data-tri-state");
             };
 
             Checkbox.prototype.text = function (val) {
@@ -2899,14 +2906,15 @@ var tui;
             };
 
             Checkbox.prototype.disabled = function (val) {
-                var result = this.is("data-disabled", val);
                 if (typeof val === "boolean") {
+                    this.is("data-disabled", val);
                     if (val)
                         this.removeAttr("tabIndex");
                     else
                         this.attr("tabIndex", "0");
-                }
-                return result;
+                    return this;
+                } else
+                    return this.is("data-disabled");
             };
 
             Checkbox.prototype.submitForm = function (formId) {
@@ -2945,67 +2953,68 @@ var tui;
                 _super.call(this, "a", Radiobox.CLASS, el);
 
                 this.disabled(this.disabled());
-                this.exposeEvents("mousedown mouseup mousemove mouseenter mouseleave");
+                this.selectable(false);
+                this.exposeEvents("mouseup mousedown mousemove mouseenter mouseleave keyup keydown");
 
-                $(this[0]).on("click", function (e) {
-                    if (_this.disabled())
-                        return;
-                    if (_this.fire("click", { "ctrl": _this[0], "event": e }) === false)
-                        return;
-                    if (tui.fire(_this.id(), { "ctrl": _this[0], "event": e }) === false)
-                        return;
-                    var formId = _this.submitForm();
-                    if (formId) {
-                        var form = tui.ctrl.form(formId);
-                        form && form.submit();
-                    }
-                });
                 $(this[0]).on("mousedown", function (e) {
                     if (_this.disabled())
                         return;
-                    if (tui.ffVer > 0)
-                        _this.focus();
+                    _this.actived(true);
+                    var self = _this;
+                    function releaseMouse(e) {
+                        self.actived(false);
+                        if (tui.isFireInside(self[0], e)) {
+                            self.checked(true);
+                            e.type = "click";
+                            self.fireClick(e);
+                        }
+                        $(document).off("mouseup", releaseMouse);
+                    }
+                    $(document).on("mouseup", releaseMouse);
                 });
-                $(this[0]).on("mouseup", function (e) {
-                    if (_this.disabled())
-                        return;
-                    _this.checked(true);
-                });
+
                 $(this[0]).on("keydown", function (e) {
                     if (_this.disabled())
                         return;
-                    var isButton = _this[0].nodeName.toLowerCase() === "button";
                     if (e.keyCode === 32) {
                         _this.actived(true);
-                        if (!isButton)
-                            e.preventDefault();
+                        e.preventDefault();
                     }
-                    _this.fire("keydown", { "ctrl": _this[0], "event": e });
-                    if (e.keyCode === 13 && !isButton) {
+                    if (e.keyCode === 13) {
                         e.preventDefault();
                         e.type = "click";
                         _this.checked(true);
-                        _this.fire("click", { "ctrl": _this[0], "event": e });
-                        tui.fire(_this.id(), { "ctrl": _this[0], "event": e });
+                        setTimeout(function () {
+                            _this.fireClick(e);
+                        }, 100);
                     }
                 });
 
                 $(this[0]).on("keyup", function (e) {
                     if (_this.disabled())
                         return;
-                    var isButton = _this[0].nodeName.toLowerCase() === "button";
                     if (e.keyCode === 32) {
                         _this.actived(false);
                         _this.checked(true);
-                    }
-                    _this.fire("keyup", { "ctrl": _this[0], "event": e });
-                    if (e.keyCode === 32 && !isButton) {
                         e.type = "click";
-                        _this.fire("click", { "ctrl": _this[0], "event": e });
-                        tui.fire(_this.id(), { "ctrl": _this[0], "event": e });
+                        setTimeout(function () {
+                            _this.fireClick(e);
+                        }, 50);
                     }
                 });
             }
+            Radiobox.prototype.fireClick = function (e) {
+                if (this.fire("click", { "ctrl": this[0], "event": e }) === false)
+                    return;
+                if (tui.fire(this.id(), { "ctrl": this[0], "event": e }) === false)
+                    return;
+                var formId = this.submitForm();
+                if (formId) {
+                    var form = tui.ctrl.form(formId);
+                    form && form.submit();
+                }
+            };
+
             Radiobox.prototype.text = function (val) {
                 if (typeof val !== tui.undef) {
                     $(this[0]).html(val);
@@ -3086,14 +3095,15 @@ var tui;
             };
 
             Radiobox.prototype.disabled = function (val) {
-                var result = this.is("data-disabled", val);
                 if (typeof val === "boolean") {
+                    this.is("data-disabled", val);
                     if (val)
                         this.removeAttr("tabIndex");
                     else
                         this.attr("tabIndex", "0");
-                }
-                return result;
+                    return this;
+                } else
+                    return this.is("data-disabled");
             };
 
             Radiobox.prototype.submitForm = function (formId) {
@@ -3421,6 +3431,7 @@ var tui;
                 this._parent = null;
                 this._parentPopup = null;
                 this._childPopup = null;
+                this._checkInterval = null;
             }
             Popup.prototype.getParentPopup = function (elem) {
                 var pop = _currentPopup;
@@ -3434,6 +3445,7 @@ var tui;
             };
 
             Popup.prototype.show = function (content, param, bindType) {
+                var _this = this;
                 if (typeof param === "string")
                     param = document.getElementById(param);
                 var elem = null;
@@ -3472,11 +3484,27 @@ var tui;
                     }
                     tui.ctrl.initCtrls(elem);
                     this.refresh();
+                    if (this._bindElem) {
+                        var pos = tui.fixedPosition(this._bindElem);
+                        this._checkInterval = setInterval(function () {
+                            var currentPos = tui.fixedPosition(_this._bindElem);
+                            if (currentPos.x !== pos.x || currentPos.y !== pos.y) {
+                                _this.close();
+                            }
+                        }, 100);
+                    }
                 }
             };
 
             Popup.prototype.close = function () {
-                this._parent.removeChild(this[0]);
+                if (this._checkInterval) {
+                    clearInterval(this._checkInterval);
+                    this._checkInterval = null;
+                }
+                try  {
+                    this._parent.removeChild(this[0]);
+                } catch (e) {
+                }
                 _currentPopup = this.parent();
                 this.parent(null);
                 if (_currentPopup)
@@ -4794,6 +4822,9 @@ var tui;
                 this._selectrows = [];
                 this._activerow = null;
                 this._columnKeyMap = null;
+                this._noRefresh = false;
+                this._initialized = false;
+                this._initInterval = null;
                 var self = this;
 
                 this.attr("tabIndex", "0");
@@ -4952,8 +4983,23 @@ var tui;
                     predefined = eval("(" + predefined + ")");
                 if (predefined)
                     this.data(predefined);
-                this.refresh();
+                else
+                    this.refresh();
+                //if (!this._initialized) {
+                //	this._initInterval = setInterval(() => {
+                //		self.refresh();
+                //		if (self._initialized) {
+                //			clearInterval(self._initInterval);
+                //			self._initInterval = null;
+                //		}
+                //	}, 100);
+                //}
             }
+            Grid.prototype.release = function () {
+                if (this._initInterval)
+                    clearInterval(this._initInterval);
+            };
+
             // Make sure not access null object
             Grid.prototype.myData = function () {
                 return this._data || this._emptyData;
@@ -5083,25 +5129,27 @@ var tui;
                     var totalNoBorderWidth = this._contentWidth - this._borderWidth * cols;
                     var totalNoImportantWidth = totalNoBorderWidth;
                     var totalNeedComputed = 0;
-                    var important = null;
+                    var totalImportantWidth = 0;
+                    var important = [];
                     for (var i = 0; i < columns.length; i++) {
                         if (typeof columns[i].width !== "number" || isNaN(columns[i].width))
                             columns[i].width = defaultWidth;
                         else if (columns[i].width < 0)
                             columns[i].width = 0;
-                        if (columns[i]["_important"]) {
-                            important = i;
+                        if (columns[i]["_important"] || (columns[i]["fixed"] && typeof columns[i].width === "number")) {
+                            important.push(i);
                             delete columns[i]["_important"];
                             columns[i].width = Math.round(columns[i].width);
-                            if (columns[i].width > totalNoBorderWidth) {
-                                columns[i].width = totalNoBorderWidth;
+                            if (columns[i].width > totalNoBorderWidth - totalImportantWidth) {
+                                columns[i].width = totalNoBorderWidth - totalImportantWidth;
                             }
+                            totalImportantWidth += columns[i].width;
                             totalNoImportantWidth -= columns[i].width;
                         } else
                             totalNeedComputed += Math.round(columns[i].width);
                     }
                     for (var i = 0; i < columns.length; i++) {
-                        if (i !== important) {
+                        if (important.indexOf(i) < 0) {
                             if (totalNeedComputed === 0)
                                 columns[i].width = 0;
                             else
@@ -5201,7 +5249,7 @@ var tui;
                 }
             };
 
-            Grid.prototype.drawCell = function (cell, contentSpan, col, value, row, rowIndex, colIndex) {
+            Grid.prototype.drawCell = function (cell, contentSpan, col, colKey, value, row, rowIndex, colIndex) {
                 if (rowIndex >= 0) {
                     if (["center", "left", "right"].indexOf(col.align) >= 0)
                         cell.style.textAlign = col.align;
@@ -5222,8 +5270,12 @@ var tui;
                         cell: cell,
                         value: value,
                         row: row,
+                        col: col,
+                        colKey: colKey,
                         rowIndex: rowIndex,
-                        colIndex: colIndex
+                        colIndex: colIndex,
+                        isRowActived: rowIndex === this._activerow,
+                        grid: this
                     });
                 }
                 if (this._sortColumn === colIndex)
@@ -5243,6 +5295,12 @@ var tui;
                 this._splitters.length = 0;
                 for (var i = 0; i < columns.length; i++) {
                     var col = columns[i];
+                    var key = null;
+                    if (typeof col.key !== tui.undef && col.key !== null) {
+                        key = this._columnKeyMap[col.key];
+                        if (typeof key === tui.undef)
+                            key = col.key;
+                    }
                     var cell = document.createElement("span");
                     cell.setAttribute("unselectable", "on");
                     cell.className = "tui-grid-head-cell tui-grid-" + this._tableId + "-" + i;
@@ -5250,7 +5308,7 @@ var tui;
                     var contentSpan = document.createElement("span");
                     contentSpan.className = "tui-grid-cell-content";
                     cell.appendChild(contentSpan);
-                    this.drawCell(cell, contentSpan, col, col.name, null, -1, i);
+                    this.drawCell(cell, contentSpan, col, key, col.name, null, -1, i);
                     this.bindSort(cell, col, i);
                     if (this.resizable()) {
                         var splitter = this.bindSplitter(cell, col, i);
@@ -5298,7 +5356,7 @@ var tui;
                             key = col.key;
                     }
                     var value = (key !== null && rowData ? rowData[key] : " ");
-                    this.drawCell(cell, cell.firstChild, col, value, rowData, index, i);
+                    this.drawCell(cell, cell.firstChild, col, key, value, rowData, index, i);
                 }
 
                 if (!bindEvent)
@@ -5309,8 +5367,10 @@ var tui;
                 });
                 $(line).mousedown(function (e) {
                     var index = line["_rowIndex"];
-                    if (self.rowselectable())
+                    if (self.rowselectable()) {
                         self.activerow(index);
+                        self.scrollTo(index);
+                    }
                     self.fire("rowmousedown", { "event": e, "index": index, "row": line });
                 });
                 $(line).mouseup(function (e) {
@@ -5392,7 +5452,6 @@ var tui;
 
                     // Clear buffer cause row click event cannot be raised,
                     // so never do this when we only want to change row selection status.
-                    // this.clearBufferLines();
                     this.drawLines();
                 }
                 return this._selectrows;
@@ -5483,9 +5542,12 @@ var tui;
                 cell.style.visibility = "hidden";
                 cell.style.width = "auto";
                 document.body.appendChild(cell);
-                var key = columnIndex;
-                if (typeof col.key === "string" && col.key || typeof col.key === "number" && !isNaN(col.key))
-                    key = col.key;
+                var key = null;
+                if (typeof col.key !== tui.undef && col.key !== null) {
+                    key = this._columnKeyMap[col.key];
+                    if (typeof key === tui.undef)
+                        key = col.key;
+                }
                 var data = this.myData();
                 var begin = displayedOnly ? this._bufferedBegin : 0;
                 var end = displayedOnly ? this._bufferedEnd : data.length();
@@ -5503,8 +5565,12 @@ var tui;
                             cell: cell,
                             value: v,
                             row: rowData,
+                            col: col,
+                            colKey: key,
                             rowIndex: i,
-                            colIndex: columnIndex
+                            colIndex: columnIndex,
+                            isRowActived: i === this._activerow,
+                            grid: this
                         });
                     if (maxWidth < cell.offsetWidth - this._borderWidth)
                         maxWidth = cell.offsetWidth - this._borderWidth;
@@ -5606,6 +5672,7 @@ var tui;
                         data = new tui.ArrayProvider(data);
                     }
                     if (typeof data.length !== "function" || typeof data.sort !== "function" || typeof data.at !== "function" || typeof data.columnKeyMap !== "function") {
+                        this.refresh();
                         throw new Error("TUI Grid: need a data provider.");
                     }
                     this._data && this._data.onupdate && this._data.onupdate(null);
@@ -5631,14 +5698,229 @@ var tui;
                     return this.is("data-consume-mwe");
             };
 
+            Grid.prototype.noRefresh = function (val) {
+                if (typeof val === "boolean") {
+                    this._noRefresh = val;
+                    return this;
+                } else
+                    return this._noRefresh;
+            };
+            Grid.prototype.refreshHead = function () {
+                this.drawHead();
+            };
             Grid.prototype.refresh = function () {
-                if (!this[0])
+                if (this._noRefresh)
                     return;
+                if (!this[0] || this[0].parentElement === null)
+                    return;
+                if (this[0].offsetWidth === 0 || this[0].offsetHeight === 0)
+                    return;
+                this._initialized = true;
                 this.computeScroll();
                 this.clearBufferLines();
                 this._columnKeyMap = this.myData().columnKeyMap();
                 this.drawHead();
                 this.drawLines();
+            };
+
+            /// Following static methods are used for cell formatting.
+            Grid.textEditor = function (whenDoubleClick) {
+                if (typeof whenDoubleClick === "undefined") { whenDoubleClick = true; }
+                return function (data) {
+                    if (data.rowIndex < 0)
+                        return;
+                    var eventName = (whenDoubleClick ? "dblclick" : "mousedown");
+                    $(data.cell.firstChild).on(eventName, function (e) {
+                        if (!tui.isLButton(e.button))
+                            return;
+                        data.grid.scrollTo(data.rowIndex);
+                        var txtBox = document.createElement("input");
+                        txtBox.className = "tui-grid-text-editor";
+                        txtBox.style.width = $(data.cell).innerWidth() - 16 + "px";
+                        txtBox.style.height = $(data.cell).innerHeight() + "px";
+                        txtBox.value = data.value;
+                        $(txtBox).mousedown(function (e) {
+                            e.stopPropagation();
+                            e.stopImmediatePropagation();
+                        });
+                        $(txtBox).change(function (e) {
+                            if (typeof data.colKey !== tui.undef)
+                                data.row[data.colKey] = txtBox.value;
+                            data.cell.firstChild.innerHTML = txtBox.value;
+                            data.value = txtBox.value;
+                        });
+                        function finishEdit() {
+                            tui.removeNode(txtBox);
+                            if (typeof data.colKey !== tui.undef)
+                                data.row[data.colKey] = txtBox.value;
+                            data.cell.firstChild.innerHTML = txtBox.value;
+                            data.value = txtBox.value;
+                            data.grid.focus();
+                        }
+                        $(txtBox).blur(function () {
+                            setTimeout(finishEdit, 0);
+                        });
+                        $(txtBox).keydown(function (e) {
+                            if (e.keyCode === 13) {
+                                finishEdit();
+                            }
+                            e.stopPropagation();
+                        });
+                        data.cell.appendChild(txtBox);
+                        setTimeout(function () {
+                            txtBox.focus();
+                            txtBox.selectionStart = txtBox.value.length;
+                        }, 10);
+                    });
+                };
+            };
+
+            Grid.chechBox = function (withHeader) {
+                if (typeof withHeader === "undefined") { withHeader = true; }
+                return function (data) {
+                    if (data.rowIndex < 0) {
+                        if (withHeader) {
+                            var headCheck = tui.ctrl.checkbox();
+                            data.cell.firstChild.innerHTML = "";
+                            data.cell.firstChild.appendChild(headCheck[0]);
+                            data.cell.style.textAlign = "center";
+
+                            var dataSet = data.grid.data();
+                            var totalLen = dataSet.length();
+                            var checkedCount = 0;
+                            var uncheckCount = 0;
+                            for (var i = 0; i < totalLen; i++) {
+                                if (dataSet.at(i)[data.colKey])
+                                    checkedCount++;
+                                else
+                                    uncheckCount++;
+                            }
+                            if (totalLen === uncheckCount) {
+                                headCheck.checked(false);
+                                headCheck.triState(false);
+                            } else if (totalLen === checkedCount) {
+                                headCheck.checked(true);
+                                headCheck.triState(false);
+                            } else
+                                headCheck.triState(true);
+                            headCheck.on("click", function () {
+                                if (typeof data.colKey !== tui.undef) {
+                                    for (var i = 0; i < totalLen; i++) {
+                                        dataSet.at(i)[data.colKey] = headCheck.checked();
+                                    }
+                                }
+                                data.value = headCheck.checked();
+                                data.grid.refresh();
+                            });
+                        }
+                        return;
+                    }
+                    data.cell.firstChild.innerHTML = "";
+                    var chk = tui.ctrl.checkbox();
+                    data.cell.firstChild.appendChild(chk[0]);
+                    data.cell.style.textAlign = "center";
+                    chk.checked(data.value);
+                    chk.on("click", function () {
+                        if (typeof data.colKey !== tui.undef)
+                            data.row[data.colKey] = chk.checked();
+                        data.value = chk.checked();
+                        data.grid.refreshHead();
+                    });
+                };
+            };
+
+            Grid.selector = function (listData) {
+                return function (data) {
+                    if (data.rowIndex < 0) {
+                        return;
+                    }
+                    var select = tui.ctrl.input(null, "select");
+                    select.useLabelClick(false);
+                    select.addClass("tui-grid-selector");
+                    select.data(listData);
+                    data.cell.appendChild(select[0]);
+                    select.value(data.value);
+                    select.on("select", function () {
+                        if (typeof data.colKey !== tui.undef)
+                            data.row[data.colKey] = select.value();
+                        data.value = select.value();
+                        data.grid.focus();
+                    });
+                    select[0].style.width = $(data.cell).innerWidth() + "px";
+                    select[0].style.height = $(data.cell).innerHeight() + "px";
+                    select.refresh();
+                };
+            };
+
+            Grid.fileSelector = function (address, accept) {
+                return function (data) {
+                    if (data.rowIndex < 0) {
+                        return;
+                    }
+                    var select = tui.ctrl.input(null, "file");
+                    select.uploadUrl(address);
+                    select.accept(accept);
+                    select.useLabelClick(false);
+                    select.addClass("tui-grid-selector");
+                    data.cell.appendChild(select[0]);
+                    select.value(data.value);
+                    select.on("select", function () {
+                        if (typeof data.colKey !== tui.undef)
+                            data.row[data.colKey] = select.value();
+                        data.value = select.value();
+                        data.grid.focus();
+                    });
+                    select[0].style.width = $(data.cell).innerWidth() + "px";
+                    select[0].style.height = $(data.cell).innerHeight() + "px";
+                    select.refresh();
+                };
+            };
+
+            Grid.calendarSelector = function () {
+                return function (data) {
+                    if (data.rowIndex < 0) {
+                        return;
+                    }
+                    var select = tui.ctrl.input(null, "calendar");
+                    select.useLabelClick(false);
+                    select.addClass("tui-grid-selector");
+                    data.cell.appendChild(select[0]);
+                    select.value(data.value);
+                    select.on("select", function () {
+                        if (typeof data.colKey !== tui.undef)
+                            data.row[data.colKey] = select.value();
+                        data.value = select.value();
+                        data.grid.focus();
+                    });
+                    select[0].style.width = $(data.cell).innerWidth() + "px";
+                    select[0].style.height = $(data.cell).innerHeight() + "px";
+                    select.refresh();
+                };
+            };
+
+            Grid.customSelector = function (func, icon) {
+                if (typeof icon === "undefined") { icon = "fa-ellipsis-h"; }
+                return function (data) {
+                    if (data.rowIndex < 0) {
+                        return;
+                    }
+                    var select = tui.ctrl.input(null, "custom-select");
+                    select.useLabelClick(false);
+                    select.icon(icon);
+                    select.addClass("tui-grid-selector");
+                    select.on("btnclick", func);
+                    select.on("select", function () {
+                        if (typeof data.colKey !== tui.undef)
+                            data.row[data.colKey] = select.value();
+                        data.value = select.value();
+                        data.grid.focus();
+                    });
+                    data.cell.appendChild(select[0]);
+                    select.value(data.value);
+                    select[0].style.width = $(data.cell).innerWidth() + "px";
+                    select[0].style.height = $(data.cell).innerHeight() + "px";
+                    select.refresh();
+                };
             };
             Grid.CLASS = "tui-grid";
             return Grid;
@@ -5676,6 +5958,7 @@ var tui;
                 this._columnKeyMap = null;
                 var self = this;
                 this._grid = ctrl.grid(el);
+                this._grid.noRefresh(true);
                 this[0] = this._grid[0];
                 this[0]._ctrl = this;
                 this.addClass(List.CLASS);
@@ -5807,7 +6090,11 @@ var tui;
                 if (!this.hasAttr("data-rowcheckable"))
                     this.rowcheckable(true);
                 if (this._grid.data()) {
+                    this._grid.noRefresh(false);
                     this.data(this._grid.data());
+                } else {
+                    this._grid.noRefresh(false);
+                    this.refresh();
                 }
             }
             List.prototype.checkChildren = function (children, checkState) {
@@ -6156,8 +6443,10 @@ var tui;
             };
 
             List.prototype.data = function (data) {
-                var ret = this._grid.data(data);
-                if (data) {
+                if (typeof data !== tui.undef) {
+                    var noRef = this._grid.noRefresh();
+                    this._grid.noRefresh(true);
+                    this._grid.data(data);
                     var data = this._grid.data();
                     if (data)
                         this._columnKeyMap = data.columnKeyMap();
@@ -6173,9 +6462,11 @@ var tui;
                         this.initTriState();
                     else
                         this.initData();
+                    this._grid.noRefresh(noRef);
                     this.formatData();
-                }
-                return ret;
+                    return this;
+                } else
+                    return this._grid.data();
             };
 
             List.prototype.lineHeight = function () {
@@ -6235,7 +6526,7 @@ var tui;
             __extends(Input, _super);
             function Input(el, type) {
                 var _this = this;
-                _super.call(this, "span", Input.CLASS, el);
+                _super.call(this, "span", Input.CLASS, el === null ? undefined : el);
                 this._fileId = null;
                 this._binding = null;
                 this._invalid = false;
@@ -6243,9 +6534,6 @@ var tui;
                 this._data = null;
                 this._columnKeyMap = null;
                 var self = this;
-
-                if (typeof type !== tui.undef)
-                    this.type(type);
 
                 this._button = document.createElement("span");
                 this._label = document.createElement("label");
@@ -6255,8 +6543,12 @@ var tui;
                 this[0].appendChild(this._button);
                 this[0].appendChild(this._notify);
 
-                this.createTextbox();
+                if (typeof type !== tui.undef)
+                    this.type(type);
+                else
+                    this.type(this.type());
 
+                //this.createTextbox();
                 var openPopup = function (e) {
                     if (_this.type() === "calendar") {
                         var pop = tui.ctrl.popup();
@@ -6422,6 +6714,8 @@ var tui;
                 $(this._button).on("click", openPopup);
 
                 $(this._label).on("mousedown", function (e) {
+                    if (!_this.useLabelClick())
+                        return;
                     if (!_this.disabled() && (_this.type() === "text" || _this.type() === "password" || _this.type() === "custom-text"))
                         setTimeout(function () {
                             _this._textbox.focus();
@@ -6457,6 +6751,8 @@ var tui;
                     if (predefined)
                         this.data(predefined);
                 }
+                if (!this.hasAttr("data-label-click"))
+                    this.useLabelClick(true);
                 this.value(this.value());
                 //this.refresh();
             }
@@ -6555,6 +6851,8 @@ var tui;
                     if (response) {
                         response.file = data["file"];
                         _this.value(response);
+                        if (_this.fire("select", { ctrl: _this[0], type: _this.type(), file: response }) === false)
+                            return;
                     } else {
                         tui.errbox(tui.str("Upload failed!"), tui.str("Error"));
                     }
@@ -6630,6 +6928,14 @@ var tui;
                 return JSON.stringify(result);
             };
 
+            Input.prototype.useLabelClick = function (val) {
+                if (typeof val === "boolean") {
+                    this.is("data-label-click", val);
+                    return this;
+                } else
+                    return this.is("data-label-click");
+            };
+
             Input.prototype.fileId = function () {
                 return this._fileId;
             };
@@ -6637,17 +6943,19 @@ var tui;
             Input.prototype.type = function (txt) {
                 var type;
                 if (typeof txt === "string") {
-                    type = this.type();
-                    if (type === txt) {
-                        this.refresh();
-                        return this;
-                    }
                     txt = txt.toLowerCase();
                     if (Input._supportType.indexOf(txt) >= 0) {
                         this.attr("data-type", txt);
-                        this.createTextbox();
-                        this.refresh();
+                    } else
+                        this.attr("data-type", "text");
+                    type = this.type();
+                    if (type === "text" || type === "password" || type === "custom-text") {
+                        this.removeAttr("tabIndex");
+                    } else {
+                        this.attr("tabIndex", "0");
                     }
+                    this.createTextbox();
+                    this.refresh();
                     return this;
                 } else {
                     type = this.attr("data-type");
@@ -6778,6 +7086,7 @@ var tui;
             Input.prototype.uploadUrl = function (url) {
                 if (typeof url === "string") {
                     this.attr("data-upload-url", url);
+                    this.unmakeFileUpload();
                     this.refresh();
                     return this;
                 } else
@@ -6802,6 +7111,7 @@ var tui;
                 var type = this.type();
                 if (typeof txt === "string") {
                     this.attr("data-accept", txt);
+                    this.unmakeFileUpload();
                     this.refresh();
                     return this;
                 } else
@@ -6973,6 +7283,21 @@ var tui;
                 }
             };
 
+            Input.prototype.textAlign = function (align) {
+                if (typeof align === "string") {
+                    if (align === "left" || align === "center" || align === "right") {
+                        this.attr("data-text-algin", align);
+                        this.refresh();
+                    }
+                    return this;
+                } else {
+                    align = this.attr("data-text-algin");
+                    if (align === null)
+                        align = "left";
+                    return align;
+                }
+            };
+
             Input.prototype.icon = function (txt) {
                 if (typeof txt === "string") {
                     this.attr("data-icon", txt);
@@ -7011,9 +7336,19 @@ var tui;
                 var text = this.text();
                 if (text === null)
                     text = "";
-                var withBtn = false;
+
+                // BUTTON
+                var hasBtn = false;
                 if (type !== "text" && type !== "password") {
-                    withBtn = true;
+                    if ($(this[0]).width() < this._button.offsetWidth) {
+                        hasBtn = false;
+                    } else {
+                        hasBtn = true;
+                    }
+                } else {
+                    hasBtn = false;
+                }
+                if (hasBtn) {
                     this._button.style.height = "";
                     this._button.style.height = ($(this[0]).innerHeight() - ($(this._button).outerHeight() - $(this._button).height())) + "px";
                     this._button.style.lineHeight = this._button.style.height;
@@ -7021,11 +7356,54 @@ var tui;
                 } else {
                     this._button.style.display = "none";
                 }
+
+                // BUTTON ICON
                 if (this.icon()) {
                     $(this._button).addClass(this.icon());
                 } else
                     this._button.className = "";
+
+                var align = this.textAlign();
+
+                // SHOW LABEL
+                var hasLabel = false;
+                var hasTextbox = false;
                 if (type === "text" || type === "password" || type === "custom-text") {
+                    hasTextbox = true;
+                    if (!text) {
+                        hasLabel = true;
+                    } else
+                        hasLabel = false;
+                } else {
+                    hasLabel = true;
+                    hasTextbox = false;
+                }
+                if (hasLabel) {
+                    if (placeholder && !text) {
+                        this._label.innerHTML = placeholder;
+                        $(this._label).addClass("tui-placeholder");
+                    } else {
+                        this._label.innerHTML = text;
+                        $(this._label).removeClass("tui-placeholder");
+                    }
+                    this._label.style.textAlign = align;
+                    this._label.style.display = "";
+                    if (hasBtn) {
+                        this._label.style.width = "";
+                        this._label.style.width = ($(this[0]).innerWidth() - ($(this._label).outerWidth() - $(this._label).width()) - $(this._button).outerWidth()) + "px";
+                    } else {
+                        this._label.style.width = "";
+                        this._label.style.width = ($(this[0]).innerWidth() - ($(this._label).outerWidth() - $(this._label).width())) + "px";
+                    }
+                    this._label.style.height = "";
+                    this._label.style.height = ($(this[0]).innerHeight() - ($(this._label).outerHeight() - $(this._label).height())) + "px";
+                    this._label.style.lineHeight = this._label.style.height;
+                } else {
+                    this._label.style.display = "none";
+                }
+
+                // TEXTBOX
+                if (hasTextbox) {
                     if (this.readonly())
                         this._textbox.readOnly = true;
                     else
@@ -7033,46 +7411,28 @@ var tui;
                     if (this._textbox.value !== text)
                         this._textbox.value = text;
                     this.removeAttr("tabIndex");
+                    this._textbox.style.textAlign = align;
                     this._textbox.style.display = "";
-                    this._label.style.display = "none";
-                    if (withBtn) {
-                        this._button.style.display = "";
+                    if (hasBtn) {
                         this._textbox.style.width = "";
                         this._textbox.style.width = ($(this[0]).innerWidth() - ($(this._textbox).outerWidth() - $(this._textbox).width()) - $(this._button).outerWidth()) + "px";
                     } else {
-                        this._button.style.display = "none";
                         this._textbox.style.width = "";
                         this._textbox.style.width = ($(this[0]).innerWidth() - ($(this._textbox).outerWidth() - $(this._textbox).width())) + "px";
                     }
                     this._textbox.style.height = "";
                     this._textbox.style.height = ($(this[0]).innerHeight() - ($(this._textbox).outerHeight() - $(this._textbox).height())) + "px";
                     this._textbox.style.lineHeight = this._textbox.style.height;
-                    this._label.style.width = this._textbox.style.width;
                 } else {
-                    this._label.innerHTML = text;
                     this._textbox.style.display = "none";
-                    this._label.style.display = "";
-                    this._label.style.right = "";
-                    this.attr("tabIndex", "0");
-                    this._label.style.lineHeight = $(this._label).height() + "px";
                 }
-                if (placeholder && !text) {
-                    this._label.innerHTML = placeholder;
-                    this._label.style.display = "";
-                    $(this._label).addClass("tui-placeholder");
-                    this._label.style.lineHeight = $(this._label).height() + "px";
-                } else {
-                    $(this._label).removeClass("tui-placeholder");
-                }
+
+                /// INVALID NOTIFY MESSAGE
                 if (this._invalid) {
-                    //if (tui.ieVer > 0 && tui.ieVer < 9)
-                    //	$(this._notify).attr("title", this._message);
-                    //else
-                    //	$(this._notify).attr("data-warning", this._message);
                     $(this._notify).attr("data-tooltip", this._message);
                     $(this._notify).css({
                         "display": "",
-                        "right": (withBtn ? this._button.offsetWidth : 0) + "px"
+                        "right": (hasBtn ? this._button.offsetWidth : 0) + "px"
                     });
                     $(this._notify).css({
                         "line-height": this._notify.offsetHeight + "px"
@@ -7441,6 +7801,7 @@ var tui;
                 tabId = "#" + tabId;
                 if (data.ctrl.checked()) {
                     $(tabId).removeClass("tui-hidden");
+                    tui.ctrl.initCtrls($(tabId)[0]);
                 } else {
                     $(tabId).addClass("tui-hidden");
                 }
