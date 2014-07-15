@@ -211,13 +211,23 @@ var tui;
     }
     tui.parseBoolean = parseBoolean;
 
-    function toElement(html) {
+    function toElement(html, withParent) {
+        if (typeof withParent === "undefined") { withParent = false; }
         var div = document.createElement('div');
-        div.innerHTML = html;
+        div.innerHTML = $.trim(html);
+        if (withParent)
+            return div;
         var el = div.firstChild;
         return div.removeChild(el);
     }
     tui.toElement = toElement;
+
+    function toNewElement(html) {
+        var div = document.createElement('div');
+        div.innerHTML = html;
+        return div;
+    }
+    tui.toNewElement = toNewElement;
 
     function removeNode(node) {
         node.parentNode && node.parentNode.removeChild(node);
@@ -3697,28 +3707,46 @@ var tui;
                 this._noRefresh = false;
                 this._useEsc = true;
             }
+            /**
+            * Show HTML content
+            */
             Dialog.prototype.showContent = function (content, title, buttons) {
                 if (this[0])
                     return this;
                 this._resourceElement = null;
-                return this.showElement(tui.toElement(content), title, buttons);
+                return this.showElement(tui.toElement(content, true), title, buttons);
             };
 
-            Dialog.prototype.showResource = function (elemId, title, buttons) {
+            /**
+            * Show resource form <script type="text/html"> ... </script>
+            */
+            Dialog.prototype.showResource = function (resourceId, title, buttons) {
                 if (this[0])
                     return this;
-                var elem = document.getElementById(elemId);
+                var elem = document.getElementById(resourceId);
                 if (!elem) {
-                    throw new Error("Resource id not found: " + elemId);
+                    throw new Error("Resource id not found: " + resourceId);
                 }
-                this._resourceElement = elem;
-                return this.showElement(elem, title, buttons);
+                return this.showContent(elem.innerHTML, title, buttons);
             };
 
+            /**
+            * Show a element from page, put the element into the dialog,
+            * if pass an element id to method then when close dialog the selected element
+            * will be put back to body.
+            */
             Dialog.prototype.showElement = function (elem, title, buttons) {
                 var _this = this;
                 if (this[0])
                     return this;
+                if (typeof elem === "string") {
+                    var elemId = elem;
+                    elem = document.getElementById(elem);
+                    if (!elem) {
+                        throw new Error("Resource id not found: " + elemId);
+                    }
+                    this._resourceElement = elem;
+                }
 
                 // Temporary inhibit refresh to prevent unexpected calculation
                 this._noRefresh = true;
