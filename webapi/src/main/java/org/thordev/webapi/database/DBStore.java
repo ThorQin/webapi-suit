@@ -7,6 +7,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.security.InvalidParameterException;
 import java.sql.Array;
 import java.sql.CallableStatement;
@@ -34,34 +35,35 @@ import java.util.logging.Logger;
  **********************************************************/
 public class DBStore {
 	private static final Logger logger = Logger.getLogger(DBStore.class.getName());
-	private static Map<Class<?>, Integer> typeMapping = new HashMap<Class<?>, Integer>() {
-		private static final long serialVersionUID = 0L;
-		{
-			put(List.class, java.sql.Types.ARRAY);
-			put(byte[].class, java.sql.Types.VARBINARY);
-			put(Void.class, java.sql.Types.JAVA_OBJECT);
-			put(void.class, java.sql.Types.JAVA_OBJECT);
-			put(Date.class, java.sql.Types.TIMESTAMP);
-			put(Calendar.class, java.sql.Types.TIMESTAMP);
-			put(Byte.class, java.sql.Types.TINYINT);
-			put(byte.class, java.sql.Types.TINYINT);
-			put(Short.class, java.sql.Types.SMALLINT);
-			put(short.class, java.sql.Types.SMALLINT);
-			put(Integer.class, java.sql.Types.INTEGER);
-			put(int.class, java.sql.Types.INTEGER);
-			put(Long.class, java.sql.Types.BIGINT);
-			put(long.class, java.sql.Types.BIGINT);
-			put(Float.class, java.sql.Types.FLOAT);
-			put(float.class, java.sql.Types.FLOAT);
-			put(Double.class, java.sql.Types.DOUBLE);
-			put(double.class, java.sql.Types.DOUBLE);
-			put(Boolean.class, java.sql.Types.BIT);
-			put(boolean.class, java.sql.Types.BIT);
-			put(String.class, java.sql.Types.VARCHAR);
-			put(DBCursor.class, java.sql.Types.OTHER);
-			put(DBTable.class, java.sql.Types.OTHER);
-		}
-	};
+	private static final Map<Class<?>, Integer> typeMapping;
+	
+	static {
+		typeMapping = new HashMap<>();
+		typeMapping.put(List.class, java.sql.Types.ARRAY);
+		typeMapping.put(byte[].class, java.sql.Types.VARBINARY);
+		typeMapping.put(Void.class, java.sql.Types.JAVA_OBJECT);
+		typeMapping.put(void.class, java.sql.Types.JAVA_OBJECT);
+		typeMapping.put(Date.class, java.sql.Types.TIMESTAMP);
+		typeMapping.put(Calendar.class, java.sql.Types.TIMESTAMP);
+		typeMapping.put(Byte.class, java.sql.Types.TINYINT);
+		typeMapping.put(byte.class, java.sql.Types.TINYINT);
+		typeMapping.put(Short.class, java.sql.Types.SMALLINT);
+		typeMapping.put(short.class, java.sql.Types.SMALLINT);
+		typeMapping.put(Integer.class, java.sql.Types.INTEGER);
+		typeMapping.put(int.class, java.sql.Types.INTEGER);
+		typeMapping.put(Long.class, java.sql.Types.BIGINT);
+		typeMapping.put(long.class, java.sql.Types.BIGINT);
+		typeMapping.put(Float.class, java.sql.Types.FLOAT);
+		typeMapping.put(float.class, java.sql.Types.FLOAT);
+		typeMapping.put(Double.class, java.sql.Types.DOUBLE);
+		typeMapping.put(double.class, java.sql.Types.DOUBLE);
+		typeMapping.put(Boolean.class, java.sql.Types.BIT);
+		typeMapping.put(boolean.class, java.sql.Types.BIT);
+		typeMapping.put(String.class, java.sql.Types.VARCHAR);
+		typeMapping.put(DBCursor.class, java.sql.Types.OTHER);
+		typeMapping.put(DBTable.class, java.sql.Types.OTHER);
+		typeMapping.put(BigDecimal.class, java.sql.Types.NUMERIC);
+	}
 	
 	private static int toSqlType(Class<?> type) {
 		Integer sqlType = typeMapping.get(type);
