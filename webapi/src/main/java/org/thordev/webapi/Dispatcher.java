@@ -699,7 +699,7 @@ public final class Dispatcher extends HttpServlet {
 				mInfo.clientSession.touch();
 			}
 			WebEntry entryAnno = info.method.getAnnotation(WebEntry.class);
-			if (entryAnno.crossSite()) {
+			if (entryAnno != null && entryAnno.crossSite()) {
 				response.setHeader("Access-Control-Allow-Origin", "*");
 				response.setHeader("Access-Control-Allow-Credentials", "true");
 				response.setHeader("Access-Control-Allow-Methods",
@@ -720,7 +720,7 @@ public final class Dispatcher extends HttpServlet {
 				s.save();
 			if (!info.method.getReturnType().equals(Void.class) && 
 					!info.method.getReturnType().equals(void.class) && 
-					(entryAnno.toJson() || result != null)) {
+					(entryAnno != null && entryAnno.toJson() || result != null)) {
 				sendJson(response, result);
 			}
 			return true;
