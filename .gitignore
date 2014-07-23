@@ -3,3 +3,15 @@ target/
 webapi/target/
 webapi/.svn/
 webapi-archetype/target/
+.classpath
+.project
+.settings
+.DS_Store
+webapi/.classpath
+webapi/.project
+webapi/.settings
+webapi/.DS_Store
+webapi-archetype/.project
+webapi-archetype/.classpath
+webapi-archetype/.settings
+webapi-archetype/.DS_Store

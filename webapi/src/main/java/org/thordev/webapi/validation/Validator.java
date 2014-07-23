@@ -35,7 +35,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.Stack;
+
 import javassist.Modifier;
+
 import org.thordev.webapi.validation.annotation.CollectionItemAgent;
 import org.thordev.webapi.validation.annotation.Validate;
 import org.thordev.webapi.validation.annotation.ValidateBoolean;
@@ -371,6 +373,7 @@ public class Validator {
 			return Map.class.isInstance(value);
 	}
 	
+	@SuppressWarnings("unchecked")
 	private static <T> T getAnnotation(Annotation[] annotations, Class<T> annoType) throws ValidateException {
 		boolean hasOtherType = false;
 		for (Annotation anno : annotations) {

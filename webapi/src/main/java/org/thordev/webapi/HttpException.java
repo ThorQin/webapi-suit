@@ -10,6 +10,7 @@ package org.thordev.webapi;
  *
  * @author nuo.qin
  */
+@SuppressWarnings("serial")
 public class HttpException extends RuntimeException {
 	private final int httpStatus;
 	

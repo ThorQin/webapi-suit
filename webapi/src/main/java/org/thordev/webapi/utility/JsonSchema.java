@@ -368,7 +368,6 @@ public class JsonSchema {
 			for (int i = 0; i < array.size(); i++) {
 				JsonElement subItem = array.get(i);
 				boolean succeeded = false;
-				checktype:
 				for (String type : allowedTypes) {
 					if (type.equals("any")
 							|| definedTypes.get(type).validate(subItem, stack)) {
@@ -430,7 +429,6 @@ public class JsonSchema {
 				if (properties.containsKey(entry.getKey())) {
 					String[] allowedSchemas = properties.get(entry.getKey());
 					boolean succeeded = false;
-					checktype:
 					for (String type : allowedSchemas) {
 						if (type.equals("any")
 								|| definedTypes.get(type).validate(entry.getValue(), stack)) {
@@ -453,7 +451,6 @@ public class JsonSchema {
 			for (Entry<String, String[]> entry : properties.entrySet()) {
 				String[] schemas = entry.getValue();
 				boolean allowNull = false;
-				checkexists:
 				for (String schema : schemas) {
 					if (schema.equals("null") || schema.equals("any")) {
 						allowNull = true;

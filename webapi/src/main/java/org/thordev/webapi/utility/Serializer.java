@@ -158,7 +158,6 @@ public class Serializer {
 	@SuppressWarnings("unchecked")
 	public static <T> T fromKryo(byte[] bytes) throws ClassCastException {
 		Kryo kryo = getKryo();
-		@SuppressWarnings(value = "unchecked")
 		T obj;
 		try (Input input = new Input(new ByteArrayInputStream(bytes))) {
 			obj = (T)kryo.readClassAndObject(input);

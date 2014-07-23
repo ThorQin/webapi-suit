@@ -10,6 +10,7 @@ package org.thordev.webapi.oauth2;
  *
  * @author nuo.qin
  */
+@SuppressWarnings("serial")
 public class OAuthException extends Exception {
 	private String error = null;
 	private String errorDescription = null;

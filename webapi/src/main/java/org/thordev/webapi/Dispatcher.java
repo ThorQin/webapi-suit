@@ -229,7 +229,6 @@ public final class Dispatcher extends HttpServlet {
 		super.destroy();
 	}
 
-	@SuppressWarnings("unused")
 	public void crossSiteOptions(HttpServletRequest request,
 			HttpServletResponse response) {
 		response.setHeader("Access-Control-Allow-Origin", "*");
@@ -378,7 +377,6 @@ public final class Dispatcher extends HttpServlet {
 			}
 		}
 		
-		PARSE_METHOD:
 		for (Method method : clazz.getDeclaredMethods()) {
 			if (startups != null && method.isAnnotationPresent(WebStartup.class)) {
 				addStartup(clazz, method, inst);

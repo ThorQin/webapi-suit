@@ -35,7 +35,7 @@ public class RuleMatcher<T> {
 	}
 	public void removeRule(String ruleRegExp) {
 		if (ruleMap.containsKey(ruleRegExp)) {
-			resultList.<T>remove(ruleMap.remove(ruleRegExp));
+			resultList.remove(ruleMap.remove(ruleRegExp));
 		}
 	}
 	public void clear() {
