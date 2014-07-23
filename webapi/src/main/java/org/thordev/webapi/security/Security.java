@@ -343,16 +343,18 @@ public final class Security {
 	public static void logout(HttpServletRequest request, HttpServletResponse response) {
 		if (instance == null)
 			return;
-		SecuritySetting setting = instance.config.get();
-		if (setting.clientSession) {
-			ClientSession session = ClientSession.fromCookie(request, response);
-			session.removeItem("user");
-			session.removeItem("role");
-			session.save();
-		} else {
-			HttpSession session = request.getSession();
-			session.removeAttribute("user");
-			session.removeAttribute("role");
+		try {
+			SecuritySetting setting = instance.config.get();
+			if (setting.clientSession) {
+				ClientSession session = ClientSession.fromCookie(request, response);
+				session.clear();
+				session.delete();
+			} else {
+				HttpSession session = request.getSession();
+				session.invalidate();
+			}
+		} catch (Exception ex) {
+			logger.log(Level.WARNING, "Logout exception!.", ex);
 		}
 	}
 }

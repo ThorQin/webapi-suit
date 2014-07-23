@@ -5,13 +5,15 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
-import org.apache.commons.codec.binary.Base64;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import org.apache.commons.codec.binary.Base64;
 import org.thordev.webapi.utility.Serializer;
 
 /**
@@ -161,7 +163,15 @@ public class ClientSession {
 	 * Clear session data
 	 */
 	public void clear()	{
-		values.clear();
+		List<String> deleteKeys = new LinkedList<>();
+		for (String key : values.keySet()) {
+			if (!key.equals("sid"))
+				deleteKeys.add(key);
+		}
+		for (String key : deleteKeys) {
+			values.remove(key);
+		}
+		touch();
 		this.isSaved = false;
 	}
 	
@@ -238,6 +248,7 @@ public class ClientSession {
 	 * (same with call 'save' function and pass 0 to maxAge parameter)
 	 */
 	public void delete() {
+		clear();
 		save(getRootPath(request), null, 0, false, false);
 	}
 }
