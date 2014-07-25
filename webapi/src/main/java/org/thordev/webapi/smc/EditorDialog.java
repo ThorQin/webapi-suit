@@ -25,8 +25,8 @@ import org.thordev.webapi.database.DBConfig.DBSetting.DBSettingItem;
 import org.thordev.webapi.mail.MailConfig.MailSetting.MailSettingItem;
 import org.thordev.webapi.security.SecuritySetting;
 import org.thordev.webapi.security.SecuritySetting.Rule;
-import static org.thordev.webapi.security.SecuritySetting.RuleAction.ALLOW;
-import static org.thordev.webapi.security.SecuritySetting.RuleAction.DENY;
+import static org.thordev.webapi.security.SecuritySetting.RuleAction.allow;
+import static org.thordev.webapi.security.SecuritySetting.RuleAction.deny;
 import org.thordev.webapi.security.SecuritySetting.URLMatcher;
 
 
@@ -120,9 +120,9 @@ class RuleTableModel extends AbstractTableModel  {
 			case 0:
 				TextAndIcon label = new TextAndIcon();
 				label.text = rule.name;
-				if (rule.action == ALLOW) {
+				if (rule.action == allow) {
 					label.icon = new ImageIcon(getClass().getResource("allow.png"));
-				} else if (rule.action == DENY) {
+				} else if (rule.action == deny) {
 					label.icon = new ImageIcon(getClass().getResource("deny.png"));
 				} else {
 					label.icon = new ImageIcon(getClass().getResource("advance.png"));
@@ -131,9 +131,9 @@ class RuleTableModel extends AbstractTableModel  {
 			case 1:
 				return rule.description;
 			case 2:
-				if (rule.action == ALLOW) {
+				if (rule.action == allow) {
 					return "Allow";
-				} else if (rule.action == DENY) {
+				} else if (rule.action == deny) {
 					return "Deny";
 				} else {
 					return "Check In Database";

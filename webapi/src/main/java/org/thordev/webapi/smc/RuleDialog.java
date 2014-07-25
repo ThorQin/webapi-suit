@@ -11,9 +11,9 @@ import java.util.List;
 import javax.swing.JOptionPane;
 import org.thordev.webapi.security.Security;
 import org.thordev.webapi.security.SecuritySetting.Rule;
-import static org.thordev.webapi.security.SecuritySetting.RuleAction.ALLOW;
-import static org.thordev.webapi.security.SecuritySetting.RuleAction.CHECK_BY_DB;
-import static org.thordev.webapi.security.SecuritySetting.RuleAction.DENY;
+import static org.thordev.webapi.security.SecuritySetting.RuleAction.allow;
+import static org.thordev.webapi.security.SecuritySetting.RuleAction.check_db;
+import static org.thordev.webapi.security.SecuritySetting.RuleAction.deny;
 
 /**
  *
@@ -315,9 +315,9 @@ public class RuleDialog extends javax.swing.JDialog {
 		textRole.setText(Security.join(rule.role));
 		textUser.setText(Security.join(rule.user));
 		textScenario.setText(Security.join(rule.scenario));
-		if (rule.action == ALLOW) {
+		if (rule.action == allow) {
 			radioAllow.setSelected(true);
-		} else if (rule.action == DENY) {
+		} else if (rule.action == deny) {
 			radioDeny.setSelected(true);
 		} else
 			radioDB.setSelected(true);
@@ -380,7 +380,7 @@ public class RuleDialog extends javax.swing.JDialog {
 			}
 		}
 		rule.name = name;
-		rule.action = radioAllow.isSelected() ? ALLOW : (radioDeny.isSelected() ? DENY : CHECK_BY_DB);
+		rule.action = radioAllow.isSelected() ? allow : (radioDeny.isSelected() ? deny : check_db);
 		rule.description = textDescription.getText().trim();
 		rule.resType = textResourceType.getText().trim();
 		rule.resId = Security.split(textResourceId.getText());

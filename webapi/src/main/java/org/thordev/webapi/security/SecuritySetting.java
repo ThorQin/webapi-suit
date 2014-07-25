@@ -21,9 +21,9 @@ import org.thordev.webapi.utility.RuleMatcher;
  */
 public class SecuritySetting {
 	public enum RuleAction {
-		ALLOW,
-		DENY,
-		CHECK_BY_DB
+		allow,
+		deny,
+		check_db
 	}
 	
 	public static class URLMatcher {

@@ -40,8 +40,8 @@ import javax.servlet.http.HttpSession;
 import org.thordev.webapi.Dispatcher;
 import org.thordev.webapi.amq.AMQ;
 import org.thordev.webapi.database.annotation.DBInterface;
-import static org.thordev.webapi.security.SecuritySetting.RuleAction.ALLOW;
-import static org.thordev.webapi.security.SecuritySetting.RuleAction.DENY;
+import static org.thordev.webapi.security.SecuritySetting.RuleAction.allow;
+import static org.thordev.webapi.security.SecuritySetting.RuleAction.deny;
 import org.thordev.webapi.utility.Serializer;
 
 
@@ -223,9 +223,9 @@ public final class Security {
 		SecuritySetting setting = config.get();
 		for (SecuritySetting.Rule rule: setting.rules) {
 			if (rule.match(resType, resId, operation, user, role, scenario)) {
-				if (rule.action == ALLOW)
+				if (rule.action == allow)
 					return new CheckPermissionResult(true, rule.name);
-				else if (rule.action == DENY) {
+				else if (rule.action == deny) {
 					logger.log(Level.INFO, "Permission denied.");
 					return new CheckPermissionResult(false, rule.name);
 				} else if (setting.dbConfig != null && !setting.dbConfig.trim().isEmpty()) {
