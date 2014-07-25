@@ -6,19 +6,27 @@
 
 package org.thordev.webapi.smc;
 
+import java.awt.Component;
 import java.io.File;
 import static java.lang.System.exit;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import javax.swing.ImageIcon;
 import javax.swing.JFileChooser;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
+import javax.swing.JTable;
 import javax.swing.table.AbstractTableModel;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.TableColumnModel;
 import org.thordev.webapi.amq.AMQConfig.AMQSetting.AMQSettingItem;
 import org.thordev.webapi.database.DBConfig.DBSetting.DBSettingItem;
 import org.thordev.webapi.mail.MailConfig.MailSetting.MailSettingItem;
 import org.thordev.webapi.security.SecuritySetting;
 import org.thordev.webapi.security.SecuritySetting.Rule;
+import static org.thordev.webapi.security.SecuritySetting.RuleAction.ALLOW;
+import static org.thordev.webapi.security.SecuritySetting.RuleAction.DENY;
 import org.thordev.webapi.security.SecuritySetting.URLMatcher;
 
 
@@ -29,7 +37,7 @@ class MatcherTableModel extends AbstractTableModel  {
 	public MatcherTableModel(List<URLMatcher> matchers) {
 		this.matchers = matchers;
 		this.columns = new String [] {
-			"URL", "Protocol", "Domain", "Port", "Method"
+			"Matcher Name", "Description", "URL"
 		};
 		
 	}
@@ -49,15 +57,11 @@ class MatcherTableModel extends AbstractTableModel  {
 		URLMatcher matcher = matchers.get(rowIndex);
 		switch (columnIndex) {
 			case 0:
-				return matcher.url == null || matcher.url.trim().isEmpty() ? "<any url>" : matcher.url;
+				return matcher.name;
 			case 1:
-				return matcher.scheme == null ? "<any scheme>" : matcher.scheme;
+				return matcher.description;
 			case 2:
-				return matcher.domain == null ? "<any domain>" : matcher.domain;
-			case 3:
-				return matcher.port == null ? "<any port>" : matcher.port;
-			case 4:
-				return matcher.method == null ? "<any method>" : matcher.method;
+				return matcher.url;
 		}
 		return null;
 	}
@@ -68,6 +72,26 @@ class MatcherTableModel extends AbstractTableModel  {
     }
 }
 
+class TextAndIcon {
+	public String text;
+	public ImageIcon icon;
+}
+
+class ImageRenderer extends DefaultTableCellRenderer {
+
+	@Override
+	public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+		Component component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column); //To change body of generated methods, choose Tools | Templates.
+		if (column == 0) {
+			JLabel label = (JLabel)component;
+			TextAndIcon info = (TextAndIcon)value;
+			label.setIcon(info.icon);
+			label.setText(info.text);
+		}
+		return component;
+	}	
+}
+
 class RuleTableModel extends AbstractTableModel  {
 
 	private final String[] columns;
@@ -75,9 +99,8 @@ class RuleTableModel extends AbstractTableModel  {
 	public RuleTableModel(List<Rule> rules) {
 		this.rules = rules;
 		this.columns = new String [] {
-			"Resource Type", "Resource ID", "Operation", "Scenario", "Role", "User"
+			"Rule Name", "Description", "Action"
 		};
-		
 	}
 	
 	@Override
@@ -95,77 +118,36 @@ class RuleTableModel extends AbstractTableModel  {
 		Rule rule = rules.get(rowIndex);
 		switch (columnIndex) {
 			case 0:
-				return rule.resType;
+				TextAndIcon label = new TextAndIcon();
+				label.text = rule.name;
+				if (rule.action == ALLOW) {
+					label.icon = new ImageIcon(getClass().getResource("allow.png"));
+				} else if (rule.action == DENY) {
+					label.icon = new ImageIcon(getClass().getResource("deny.png"));
+				} else {
+					label.icon = new ImageIcon(getClass().getResource("advance.png"));
+				}
+				return label;
 			case 1:
-				return rule.resId == null ? "<any id>" : rule.resId;
+				return rule.description;
 			case 2:
-				return rule.operation == null ? "<any operation>" : rule.operation;
-			case 3:
-				return rule.scenario == null ? "<any scenario>" : rule.scenario;
-			case 4:
-				return rule.role == null ? "<no role>" : rule.role;
-			case 5:
-				return rule.user == null ? "<no user>" : rule.user;
+				if (rule.action == ALLOW) {
+					return "Allow";
+				} else if (rule.action == DENY) {
+					return "Deny";
+				} else {
+					return "Check In Database";
+				}
 		}
 		return null;
 	}
-	
 	@Override
 	public String getColumnName(int col) {
 		return columns[col];
     }
 }
 
-abstract class MapTableModel<T> extends AbstractTableModel {
-	private final String[] columns;
-	private final Map<String, T> items;
-	public MapTableModel(Map<String, T> items, String[] columns) {
-		this.items = items;
-		this.columns = columns;
-		
-	}
-	
-	public Map.Entry<String, T> get(int rowIndex) {
-		Object[] array = items.entrySet().toArray();
-		Map.Entry<String, T> entry = (Map.Entry<String, T>)array[rowIndex];
-		return entry;
-	}
-	
-	public int getKeyIndex(String key) {
-		Object[] array = items.entrySet().toArray();
-		for (int i = 0; i < array.length; i++) {
-			Map.Entry<String, T> entry = (Map.Entry<String, T>)array[i];
-			if (entry.getKey().equals(key))
-				return i;
-		}
-		return -1;
-	}
-	
-	@Override
-	public int getRowCount() {
-		return items.size();
-	}
-
-	@Override
-	public int getColumnCount() {
-		return columns.length;
-	}
-	
-	protected abstract String getColValue(int columnIndex, Map.Entry<String, T> entry);
-
-	@Override
-	public Object getValueAt(int rowIndex, int columnIndex) {
-		return getColValue(columnIndex, get(rowIndex));
-	}
-	
-	@Override
-	public String getColumnName(int col) {
-		return columns[col];
-    }
-}
-
-
-class DBModel extends MapTableModel<DBSettingItem> {
+class DBModel extends MapTableModelBase<DBSettingItem> {
 	public DBModel(Map<String, DBSettingItem> items) {
 		super(items, new String[]{"Name", "Driver", "Uri", "User", "Password"});
 	}
@@ -189,7 +171,7 @@ class DBModel extends MapTableModel<DBSettingItem> {
 	}
 }
 
-class AMQModel extends MapTableModel<AMQSettingItem> {
+class AMQModel extends MapTableModelBase<AMQSettingItem> {
 	public AMQModel(Map<String, AMQSettingItem> items) {
 		super(items, new String[]{"Name", "Uri", "User", "Password", "Default Address"});
 	}
@@ -213,7 +195,7 @@ class AMQModel extends MapTableModel<AMQSettingItem> {
 	}
 }
 
-class MailModel extends MapTableModel<MailSettingItem> {
+class MailModel extends MapTableModelBase<MailSettingItem> {
 	public MailModel(Map<String, MailSettingItem> items) {
 		super(items, new String[]{"Name", "Host", "Port", "User", "Password", "Mail From"});
 	}
@@ -247,9 +229,7 @@ public class EditorDialog extends javax.swing.JDialog {
 	private DBModel dbModel;
 	private AMQModel amqModel;
 	private MailModel mailModel;
-	private RuleTableModel allowModel;
-	private RuleTableModel denyModel;
-	private RuleTableModel advanceModel;
+	private RuleTableModel ruleModel;
 	private MatcherTableModel matcherModel;
 	private String configFile = null;
 	
@@ -268,6 +248,24 @@ public class EditorDialog extends javax.swing.JDialog {
 	
 	public void setConfigFile(String configFile) {
 		this.configFile = configFile;
+	}
+	
+	private void syncDBCombo() {
+		Object v = textDBConfig.getEditor().getItem();
+		textDBConfig.removeAllItems();
+		for (String k : config.getDB().keySet()) {
+			textDBConfig.addItem(k);
+		}
+		textDBConfig.getEditor().setItem(v);
+	}
+	
+	private void syncAMQCombo() {
+		Object v = textAMQConfig.getEditor().getItem();
+		textAMQConfig.removeAllItems();
+		for (String k : config.getAmq().keySet()) {
+			textAMQConfig.addItem(k);
+		}
+		textAMQConfig.getEditor().setItem(v);
 	}
 	
 	/**
@@ -306,47 +304,37 @@ public class EditorDialog extends javax.swing.JDialog {
         panelCommon = new javax.swing.JPanel();
         textSessionTimeout = new javax.swing.JTextField();
         jLabel4 = new javax.swing.JLabel();
-        jLabel6 = new javax.swing.JLabel();
         jLabel1 = new javax.swing.JLabel();
-        textDBConfig = new javax.swing.JTextField();
         jLabel2 = new javax.swing.JLabel();
-        textAMQConfig = new javax.swing.JTextField();
-        jLabel12 = new javax.swing.JLabel();
-        jLabel13 = new javax.swing.JLabel();
         jSeparator1 = new javax.swing.JSeparator();
         jLabel15 = new javax.swing.JLabel();
-        jLabel16 = new javax.swing.JLabel();
         comboSessionType = new javax.swing.JComboBox();
         comboDefaultAction = new javax.swing.JComboBox();
-        jLabel17 = new javax.swing.JLabel();
         jLabel18 = new javax.swing.JLabel();
+        textAMQConfig = new javax.swing.JComboBox();
+        textDBConfig = new javax.swing.JComboBox();
+        jLabel16 = new javax.swing.JLabel();
+        jLabel17 = new javax.swing.JLabel();
         panelAllow = new javax.swing.JPanel();
         jScrollPane1 = new javax.swing.JScrollPane();
         tableAllowRules = new javax.swing.JTable();
         buttonAddAllowRule = new javax.swing.JButton();
         buttonDeleteAllowRules = new javax.swing.JButton();
         jLabel8 = new javax.swing.JLabel();
-        panelDeny = new javax.swing.JPanel();
-        buttonAddDenyRule = new javax.swing.JButton();
-        buttonDeleteDenyRules = new javax.swing.JButton();
-        jLabel9 = new javax.swing.JLabel();
-        jScrollPane9 = new javax.swing.JScrollPane();
-        tableDenyRules = new javax.swing.JTable();
-        panelAdvanced = new javax.swing.JPanel();
-        buttonAddAdvancedRule = new javax.swing.JButton();
-        buttonDeleteAdvancedRules = new javax.swing.JButton();
-        jLabel10 = new javax.swing.JLabel();
-        jScrollPane10 = new javax.swing.JScrollPane();
-        tableAdvancedRules = new javax.swing.JTable();
-        jLabel14 = new javax.swing.JLabel();
+        buttonRuleTop = new javax.swing.JButton();
+        buttonRuleUp = new javax.swing.JButton();
+        buttonRuleDown = new javax.swing.JButton();
+        buttonRuleBottom = new javax.swing.JButton();
         panelURLMatcher = new javax.swing.JPanel();
         buttonAddMatcher = new javax.swing.JButton();
         buttonDeleteMatcher = new javax.swing.JButton();
         jScrollPane4 = new javax.swing.JScrollPane();
         tableMatchers = new javax.swing.JTable();
         jLabel11 = new javax.swing.JLabel();
-        jScrollPane2 = new javax.swing.JScrollPane();
-        labelMatcherInfo = new javax.swing.JLabel();
+        buttonMatcherTop = new javax.swing.JButton();
+        buttonMatcherUp = new javax.swing.JButton();
+        buttonMatcherDown = new javax.swing.JButton();
+        buttonMatcherBottom = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("Web Configuration Editor");
@@ -398,6 +386,7 @@ public class EditorDialog extends javax.swing.JDialog {
             }
         });
 
+        tableDB.setFont(tableDB.getFont().deriveFont(tableDB.getFont().getSize()+1f));
         tableDB.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
 
@@ -431,7 +420,7 @@ public class EditorDialog extends javax.swing.JDialog {
                 .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addGroup(jPanel2Layout.createSequentialGroup()
                         .addContainerGap()
-                        .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 709, Short.MAX_VALUE))
+                        .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 575, Short.MAX_VALUE))
                     .addGroup(jPanel2Layout.createSequentialGroup()
                         .addGap(25, 25, 25)
                         .addComponent(jLabel5)
@@ -452,8 +441,8 @@ public class EditorDialog extends javax.swing.JDialog {
                             .addComponent(buttonAddDB)
                             .addComponent(buttonDeleteDB))))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 319, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 260, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(42, Short.MAX_VALUE))
         );
 
         jTabbedPane1.addTab("Database", jPanel2);
@@ -476,6 +465,7 @@ public class EditorDialog extends javax.swing.JDialog {
             }
         });
 
+        tableAMQ.setFont(tableAMQ.getFont().deriveFont(tableAMQ.getFont().getSize()+1f));
         tableAMQ.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
 
@@ -509,7 +499,7 @@ public class EditorDialog extends javax.swing.JDialog {
                 .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addGroup(jPanel3Layout.createSequentialGroup()
                         .addContainerGap()
-                        .addComponent(jScrollPane5, javax.swing.GroupLayout.DEFAULT_SIZE, 709, Short.MAX_VALUE))
+                        .addComponent(jScrollPane5, javax.swing.GroupLayout.DEFAULT_SIZE, 575, Short.MAX_VALUE))
                     .addGroup(jPanel3Layout.createSequentialGroup()
                         .addGap(28, 28, 28)
                         .addComponent(jLabel7)
@@ -530,8 +520,8 @@ public class EditorDialog extends javax.swing.JDialog {
                             .addComponent(buttonDeleteAMQ)))
                     .addComponent(jLabel7))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane5, javax.swing.GroupLayout.PREFERRED_SIZE, 319, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addComponent(jScrollPane5, javax.swing.GroupLayout.PREFERRED_SIZE, 260, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(42, Short.MAX_VALUE))
         );
 
         jTabbedPane1.addTab("ActiveMQ", jPanel3);
@@ -556,6 +546,7 @@ public class EditorDialog extends javax.swing.JDialog {
             }
         });
 
+        tableMail.setFont(tableMail.getFont().deriveFont(tableMail.getFont().getSize()+1f));
         tableMail.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
 
@@ -587,7 +578,7 @@ public class EditorDialog extends javax.swing.JDialog {
                 .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addGroup(jPanel5Layout.createSequentialGroup()
                         .addContainerGap()
-                        .addComponent(jScrollPane6, javax.swing.GroupLayout.DEFAULT_SIZE, 705, Short.MAX_VALUE))
+                        .addComponent(jScrollPane6, javax.swing.GroupLayout.DEFAULT_SIZE, 575, Short.MAX_VALUE))
                     .addGroup(jPanel5Layout.createSequentialGroup()
                         .addGap(25, 25, 25)
                         .addComponent(jLabel19)
@@ -608,8 +599,8 @@ public class EditorDialog extends javax.swing.JDialog {
                             .addComponent(buttonAddMail)
                             .addComponent(buttonDeleteMail))))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane6, javax.swing.GroupLayout.PREFERRED_SIZE, 319, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addComponent(jScrollPane6, javax.swing.GroupLayout.PREFERRED_SIZE, 260, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(42, Short.MAX_VALUE))
         );
 
         jTabbedPane1.addTab("Mail Service", jPanel5);
@@ -622,131 +613,106 @@ public class EditorDialog extends javax.swing.JDialog {
 
         jLabel4.setText("Session Timeout");
 
-        jLabel6.setForeground(new java.awt.Color(153, 153, 153));
-        jLabel6.setText("<html>Session is invalid after passed specified seconds</html>");
-        jLabel6.setVerticalAlignment(javax.swing.SwingConstants.TOP);
-
         jLabel1.setText("Database Config");
-
-        textDBConfig.setName(""); // NOI18N
 
         jLabel2.setText("ActiveMQ Config");
 
-        jLabel12.setForeground(new java.awt.Color(153, 153, 153));
-        jLabel12.setText("<html>Provide database configuration name to store the security setting in database and let security module can check privilege from database when matched an advanced rule.</html>");
-        jLabel12.setVerticalAlignment(javax.swing.SwingConstants.TOP);
-
-        jLabel13.setForeground(new java.awt.Color(153, 153, 153));
-        jLabel13.setText("<html>If you want to notify all front-side load balance server to obtain newly changed settings, then you should specify ActiveMQ configuration name, when save this setting this tool will send a notification to all server which listen to the same ActiveMQ.</html>");
-        jLabel13.setVerticalAlignment(javax.swing.SwingConstants.TOP);
-
         jLabel15.setText("Session Type");
-
-        jLabel16.setForeground(new java.awt.Color(153, 153, 153));
-        jLabel16.setText("<html>How to save the session state, use client side cookie or server session</html>");
-        jLabel16.setVerticalAlignment(javax.swing.SwingConstants.TOP);
 
         comboSessionType.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Client Side Session", "Server Side Session" }));
 
         comboDefaultAction.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Allow", "Deny" }));
-        comboDefaultAction.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                comboDefaultActionActionPerformed(evt);
-            }
-        });
-
-        jLabel17.setText("<html><span style=\"color:#888888;\">When no rules can match the operation. </span></html>");
-        jLabel17.setVerticalAlignment(javax.swing.SwingConstants.TOP);
 
         jLabel18.setText("Default Action");
+
+        textAMQConfig.setEditable(true);
+
+        textDBConfig.setEditable(true);
+
+        jLabel16.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/tooltip.png"))); // NOI18N
+        jLabel16.setToolTipText("<html>Provide database configuration name to store the security setting <br>\nin database and let security module can check privilege from database<br> \nwhen matched an advanced rule.</html>");
+
+        jLabel17.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/tooltip.png"))); // NOI18N
+        jLabel17.setToolTipText("<html>If you want to notify all front-side load balance server to obtain newly changed settings, \n<br>then you should specify ActiveMQ configuration name, when save this setting<br>\nthis tool will send a notification to all server which listen to the same ActiveMQ.</html>");
 
         javax.swing.GroupLayout panelCommonLayout = new javax.swing.GroupLayout(panelCommon);
         panelCommon.setLayout(panelCommonLayout);
         panelCommonLayout.setHorizontalGroup(
             panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panelCommonLayout.createSequentialGroup()
-                .addGap(24, 24, 24)
-                .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(panelCommonLayout.createSequentialGroup()
-                        .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(textDBConfig, javax.swing.GroupLayout.Alignment.TRAILING)
-                            .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                                .addComponent(jLabel12, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-                                .addComponent(jLabel1, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 275, Short.MAX_VALUE)))
-                        .addGap(65, 65, 65)
-                        .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addComponent(jLabel13, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-                            .addComponent(textAMQConfig, javax.swing.GroupLayout.DEFAULT_SIZE, 320, Short.MAX_VALUE)))
+                .addGap(81, 81, 81)
+                .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(jSeparator1)
                     .addGroup(panelCommonLayout.createSequentialGroup()
+                        .addComponent(jLabel2, javax.swing.GroupLayout.PREFERRED_SIZE, 130, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jLabel17))
+                    .addGroup(panelCommonLayout.createSequentialGroup()
+                        .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 127, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(jLabel16))
+                    .addComponent(textAMQConfig, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(textDBConfig, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelCommonLayout.createSequentialGroup()
+                        .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                                .addComponent(jLabel15, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(jLabel4, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 128, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addComponent(jLabel18, javax.swing.GroupLayout.PREFERRED_SIZE, 128, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addComponent(jLabel4, javax.swing.GroupLayout.DEFAULT_SIZE, 204, Short.MAX_VALUE)
-                            .addComponent(jLabel6, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-                            .addComponent(textSessionTimeout))
-                        .addGap(18, 23, Short.MAX_VALUE)
-                        .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jLabel16, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-                            .addComponent(comboSessionType, 0, 203, Short.MAX_VALUE)
-                            .addComponent(jLabel15, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                        .addGap(18, 22, Short.MAX_VALUE)
-                        .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(comboDefaultAction, javax.swing.GroupLayout.PREFERRED_SIZE, 208, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                                .addComponent(jLabel17, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 208, Short.MAX_VALUE)
-                                .addComponent(jLabel18, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
-                    .addComponent(jLabel2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, 320, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(393, 393, 393))
+                            .addComponent(textSessionTimeout)
+                            .addComponent(comboSessionType, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(comboDefaultAction, javax.swing.GroupLayout.PREFERRED_SIZE, 262, javax.swing.GroupLayout.PREFERRED_SIZE))))
+                .addContainerGap(87, Short.MAX_VALUE))
         );
         panelCommonLayout.setVerticalGroup(
             panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(panelCommonLayout.createSequentialGroup()
-                .addGap(27, 27, 27)
+                .addGap(28, 28, 28)
                 .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel4)
-                    .addComponent(jLabel15)
-                    .addComponent(jLabel18))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jLabel6)
-                    .addComponent(jLabel17)
+                    .addComponent(textSessionTimeout, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(comboSessionType, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel15))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel18)
+                    .addComponent(comboDefaultAction, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(32, 32, 32)
+                .addComponent(jSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(18, 18, 18)
+                .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(jLabel1)
                     .addComponent(jLabel16))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(textSessionTimeout, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(comboSessionType, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(comboDefaultAction, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addGap(31, 31, 31)
-                .addComponent(jSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, 10, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
-                .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel1)
-                    .addComponent(jLabel2))
+                .addComponent(textDBConfig, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jLabel12)
-                    .addComponent(jLabel13))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(panelCommonLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(textAMQConfig, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(textDBConfig, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(48, 48, 48))
+                    .addComponent(jLabel2)
+                    .addComponent(jLabel17))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(textAMQConfig, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(28, Short.MAX_VALUE))
         );
 
         panelProperties.addTab("Common", panelCommon);
 
         panelAllow.setBackground(new java.awt.Color(255, 255, 255));
 
+        tableAllowRules.setFont(tableAllowRules.getFont().deriveFont(tableAllowRules.getFont().getSize()+1f));
         tableAllowRules.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
 
             },
             new String [] {
-                "Resource Type", "Resource ID", "Scenario", "Role", "User", "Operation"
+                "", "Rule Name", "Description", "Action"
             }
         ) {
             Class[] types = new Class [] {
-                java.lang.String.class, java.lang.Object.class, java.lang.Object.class, java.lang.Object.class, java.lang.Object.class, java.lang.Object.class
+                java.lang.Object.class, java.lang.String.class, java.lang.String.class, java.lang.String.class
             };
 
             public Class getColumnClass(int columnIndex) {
@@ -776,7 +742,40 @@ public class EditorDialog extends javax.swing.JDialog {
             }
         });
 
-        jLabel8.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/allow.png"))); // NOI18N
+        jLabel8.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/rule.png"))); // NOI18N
+
+        buttonRuleTop.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/top.png"))); // NOI18N
+        buttonRuleTop.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        buttonRuleTop.setIconTextGap(0);
+        buttonRuleTop.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                buttonRuleTopActionPerformed(evt);
+            }
+        });
+
+        buttonRuleUp.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/up.png"))); // NOI18N
+        buttonRuleUp.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        buttonRuleUp.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                buttonRuleUpActionPerformed(evt);
+            }
+        });
+
+        buttonRuleDown.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/down.png"))); // NOI18N
+        buttonRuleDown.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        buttonRuleDown.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                buttonRuleDownActionPerformed(evt);
+            }
+        });
+
+        buttonRuleBottom.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/bottom.png"))); // NOI18N
+        buttonRuleBottom.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        buttonRuleBottom.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                buttonRuleBottomActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout panelAllowLayout = new javax.swing.GroupLayout(panelAllow);
         panelAllow.setLayout(panelAllowLayout);
@@ -785,188 +784,47 @@ public class EditorDialog extends javax.swing.JDialog {
             .addGroup(panelAllowLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(panelAllowLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelAllowLayout.createSequentialGroup()
+                    .addGroup(panelAllowLayout.createSequentialGroup()
                         .addGap(15, 15, 15)
                         .addComponent(jLabel8)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(buttonAddAllowRule)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(buttonDeleteAllowRules)))
+                        .addComponent(buttonDeleteAllowRules))
+                    .addGroup(panelAllowLayout.createSequentialGroup()
+                        .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 496, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addGroup(panelAllowLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                            .addComponent(buttonRuleDown, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                            .addComponent(buttonRuleUp, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                            .addComponent(buttonRuleTop, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(buttonRuleBottom, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE))))
                 .addContainerGap())
         );
         panelAllowLayout.setVerticalGroup(
             panelAllowLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelAllowLayout.createSequentialGroup()
+            .addGroup(panelAllowLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(panelAllowLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(jLabel8)
                     .addGroup(panelAllowLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(buttonAddAllowRule)
                         .addComponent(buttonDeleteAllowRules)))
-                .addGap(18, 18, 18)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 260, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap())
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(panelAllowLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 213, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGroup(panelAllowLayout.createSequentialGroup()
+                        .addComponent(buttonRuleTop, javax.swing.GroupLayout.PREFERRED_SIZE, 48, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(buttonRuleUp, javax.swing.GroupLayout.PREFERRED_SIZE, 48, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(buttonRuleDown, javax.swing.GroupLayout.PREFERRED_SIZE, 48, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(buttonRuleBottom, javax.swing.GroupLayout.PREFERRED_SIZE, 48, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap(36, Short.MAX_VALUE))
         );
 
-        panelProperties.addTab("Allow", panelAllow);
-
-        panelDeny.setBackground(new java.awt.Color(255, 255, 255));
-
-        buttonAddDenyRule.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/add.png"))); // NOI18N
-        buttonAddDenyRule.setText("Add Rule");
-        buttonAddDenyRule.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                buttonAddDenyRuleActionPerformed(evt);
-            }
-        });
-
-        buttonDeleteDenyRules.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/delete.png"))); // NOI18N
-        buttonDeleteDenyRules.setText("Delete");
-        buttonDeleteDenyRules.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                buttonDeleteDenyRulesActionPerformed(evt);
-            }
-        });
-
-        jLabel9.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/deny.png"))); // NOI18N
-
-        tableDenyRules.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-
-            },
-            new String [] {
-                "Resource Type", "Resource ID", "Role", "User", "Operation"
-            }
-        ) {
-            Class[] types = new Class [] {
-                java.lang.String.class, java.lang.Object.class, java.lang.Object.class, java.lang.Object.class, java.lang.Object.class
-            };
-
-            public Class getColumnClass(int columnIndex) {
-                return types [columnIndex];
-            }
-        });
-        tableDenyRules.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                tableDenyRulesMouseClicked(evt);
-            }
-        });
-        jScrollPane9.setViewportView(tableDenyRules);
-
-        javax.swing.GroupLayout panelDenyLayout = new javax.swing.GroupLayout(panelDeny);
-        panelDeny.setLayout(panelDenyLayout);
-        panelDenyLayout.setHorizontalGroup(
-            panelDenyLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panelDenyLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(panelDenyLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelDenyLayout.createSequentialGroup()
-                        .addGap(15, 15, 15)
-                        .addComponent(jLabel9)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(buttonAddDenyRule)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(buttonDeleteDenyRules))
-                    .addComponent(jScrollPane9, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE))
-                .addContainerGap())
-        );
-        panelDenyLayout.setVerticalGroup(
-            panelDenyLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelDenyLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(panelDenyLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(jLabel9)
-                    .addGroup(panelDenyLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(buttonAddDenyRule)
-                        .addComponent(buttonDeleteDenyRules)))
-                .addGap(18, 18, 18)
-                .addComponent(jScrollPane9, javax.swing.GroupLayout.PREFERRED_SIZE, 260, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap())
-        );
-
-        panelProperties.addTab("Deny", panelDeny);
-
-        panelAdvanced.setBackground(new java.awt.Color(255, 255, 255));
-
-        buttonAddAdvancedRule.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/add.png"))); // NOI18N
-        buttonAddAdvancedRule.setText("Add Rule");
-        buttonAddAdvancedRule.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                buttonAddAdvancedRuleActionPerformed(evt);
-            }
-        });
-
-        buttonDeleteAdvancedRules.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/delete.png"))); // NOI18N
-        buttonDeleteAdvancedRules.setText("Delete");
-        buttonDeleteAdvancedRules.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                buttonDeleteAdvancedRulesActionPerformed(evt);
-            }
-        });
-
-        jLabel10.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/advance.png"))); // NOI18N
-
-        tableAdvancedRules.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-
-            },
-            new String [] {
-                "Resource Type", "Resource ID", "Role", "User", "Operation"
-            }
-        ) {
-            Class[] types = new Class [] {
-                java.lang.String.class, java.lang.Object.class, java.lang.Object.class, java.lang.Object.class, java.lang.Object.class
-            };
-
-            public Class getColumnClass(int columnIndex) {
-                return types [columnIndex];
-            }
-        });
-        tableAdvancedRules.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                tableAdvancedRulesMouseClicked(evt);
-            }
-        });
-        jScrollPane10.setViewportView(tableAdvancedRules);
-
-        jLabel14.setText("Advanced rule will be run in database.");
-
-        javax.swing.GroupLayout panelAdvancedLayout = new javax.swing.GroupLayout(panelAdvanced);
-        panelAdvanced.setLayout(panelAdvancedLayout);
-        panelAdvancedLayout.setHorizontalGroup(
-            panelAdvancedLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panelAdvancedLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(panelAdvancedLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelAdvancedLayout.createSequentialGroup()
-                        .addGap(15, 15, 15)
-                        .addComponent(jLabel10)
-                        .addGap(18, 18, 18)
-                        .addComponent(jLabel14, javax.swing.GroupLayout.PREFERRED_SIZE, 300, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(buttonAddAdvancedRule)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(buttonDeleteAdvancedRules))
-                    .addComponent(jScrollPane10, javax.swing.GroupLayout.Alignment.TRAILING))
-                .addContainerGap())
-        );
-        panelAdvancedLayout.setVerticalGroup(
-            panelAdvancedLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelAdvancedLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(panelAdvancedLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                    .addComponent(jLabel10, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(panelAdvancedLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(jLabel14)
-                        .addComponent(buttonAddAdvancedRule)
-                        .addComponent(buttonDeleteAdvancedRules)))
-                .addGap(18, 18, 18)
-                .addComponent(jScrollPane10, javax.swing.GroupLayout.PREFERRED_SIZE, 260, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap())
-        );
-
-        panelProperties.addTab("Advanced", panelAdvanced);
+        panelProperties.addTab("Security Rule", panelAllow);
 
         panelURLMatcher.setBackground(new java.awt.Color(255, 255, 255));
 
@@ -986,16 +844,17 @@ public class EditorDialog extends javax.swing.JDialog {
             }
         });
 
+        tableMatchers.setFont(tableMatchers.getFont().deriveFont(tableMatchers.getFont().getSize()+1f));
         tableMatchers.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
 
             },
             new String [] {
-                "URL", "Protocal", "Domain", "Port", "Method"
+                "Name", "Description", "URL"
             }
         ) {
             Class[] types = new Class [] {
-                java.lang.String.class, java.lang.Object.class, java.lang.Object.class, java.lang.Object.class, java.lang.Object.class
+                java.lang.String.class, java.lang.String.class, java.lang.String.class
             };
 
             public Class getColumnClass(int columnIndex) {
@@ -1011,9 +870,38 @@ public class EditorDialog extends javax.swing.JDialog {
 
         jLabel11.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/address.png"))); // NOI18N
 
-        labelMatcherInfo.setVerticalAlignment(javax.swing.SwingConstants.TOP);
-        labelMatcherInfo.setAutoscrolls(true);
-        jScrollPane2.setViewportView(labelMatcherInfo);
+        buttonMatcherTop.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/top.png"))); // NOI18N
+        buttonMatcherTop.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        buttonMatcherTop.setIconTextGap(0);
+        buttonMatcherTop.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                buttonMatcherTopActionPerformed(evt);
+            }
+        });
+
+        buttonMatcherUp.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/up.png"))); // NOI18N
+        buttonMatcherUp.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        buttonMatcherUp.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                buttonMatcherUpActionPerformed(evt);
+            }
+        });
+
+        buttonMatcherDown.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/down.png"))); // NOI18N
+        buttonMatcherDown.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        buttonMatcherDown.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                buttonMatcherDownActionPerformed(evt);
+            }
+        });
+
+        buttonMatcherBottom.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/bottom.png"))); // NOI18N
+        buttonMatcherBottom.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        buttonMatcherBottom.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                buttonMatcherBottomActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout panelURLMatcherLayout = new javax.swing.GroupLayout(panelURLMatcher);
         panelURLMatcher.setLayout(panelURLMatcherLayout);
@@ -1022,15 +910,21 @@ public class EditorDialog extends javax.swing.JDialog {
             .addGroup(panelURLMatcherLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(panelURLMatcherLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane4, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelURLMatcherLayout.createSequentialGroup()
-                        .addGap(11, 11, 11)
+                    .addGroup(panelURLMatcherLayout.createSequentialGroup()
+                        .addComponent(jScrollPane4, javax.swing.GroupLayout.DEFAULT_SIZE, 496, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addGroup(panelURLMatcherLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                            .addComponent(buttonMatcherDown, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                            .addComponent(buttonMatcherUp, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                            .addComponent(buttonMatcherTop, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(buttonMatcherBottom, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addGroup(panelURLMatcherLayout.createSequentialGroup()
+                        .addGap(14, 14, 14)
                         .addComponent(jLabel11)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(buttonAddMatcher)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(buttonDeleteMatcher))
-                    .addComponent(jScrollPane2))
+                        .addComponent(buttonDeleteMatcher)))
                 .addContainerGap())
         );
         panelURLMatcherLayout.setVerticalGroup(
@@ -1042,11 +936,18 @@ public class EditorDialog extends javax.swing.JDialog {
                     .addGroup(panelURLMatcherLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(buttonAddMatcher)
                         .addComponent(buttonDeleteMatcher)))
-                .addGap(18, 18, 18)
-                .addComponent(jScrollPane4, javax.swing.GroupLayout.PREFERRED_SIZE, 142, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 103, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(42, 42, 42))
+                .addGroup(panelURLMatcherLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addGroup(panelURLMatcherLayout.createSequentialGroup()
+                        .addComponent(buttonMatcherTop, javax.swing.GroupLayout.PREFERRED_SIZE, 48, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(buttonMatcherUp, javax.swing.GroupLayout.PREFERRED_SIZE, 48, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(buttonMatcherDown, javax.swing.GroupLayout.PREFERRED_SIZE, 48, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(buttonMatcherBottom, javax.swing.GroupLayout.PREFERRED_SIZE, 48, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(jScrollPane4, javax.swing.GroupLayout.PREFERRED_SIZE, 213, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(92, 92, 92))
         );
 
         panelProperties.addTab("URL Matcher", panelURLMatcher);
@@ -1057,14 +958,14 @@ public class EditorDialog extends javax.swing.JDialog {
             jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel4Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(panelProperties, javax.swing.GroupLayout.PREFERRED_SIZE, 709, Short.MAX_VALUE)
+                .addComponent(panelProperties)
                 .addContainerGap())
         );
         jPanel4Layout.setVerticalGroup(
             jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel4Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(panelProperties, javax.swing.GroupLayout.PREFERRED_SIZE, 364, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(panelProperties, javax.swing.GroupLayout.PREFERRED_SIZE, 333, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
@@ -1075,24 +976,24 @@ public class EditorDialog extends javax.swing.JDialog {
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(jLabel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jTabbedPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 738, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(buttonOK, javax.swing.GroupLayout.PREFERRED_SIZE, 91, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(buttonCancel, javax.swing.GroupLayout.PREFERRED_SIZE, 92, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(28, 28, 28))
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jTabbedPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 604, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addComponent(jLabel3, javax.swing.GroupLayout.PREFERRED_SIZE, 69, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(13, 13, 13)
-                .addComponent(jTabbedPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 421, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, Short.MAX_VALUE)
+                .addComponent(jTabbedPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 389, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 15, Short.MAX_VALUE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(buttonCancel)
                     .addComponent(buttonOK))
@@ -1102,17 +1003,6 @@ public class EditorDialog extends javax.swing.JDialog {
         pack();
         setLocationRelativeTo(null);
     }// </editor-fold>//GEN-END:initComponents
-
-    private void buttonAddAllowRuleActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonAddAllowRuleActionPerformed
-        RuleDialog dialog = new RuleDialog(this, true);
-		dialog.setVisible(true);
-		Rule rule = dialog.getRule();
-		if (rule != null) {
-			config.getSecurity().allowRules.add(rule);
-			allowModel.fireTableDataChanged();
-			tableAllowRules.setRowSelectionInterval(config.getSecurity().allowRules.size() - 1, config.getSecurity().allowRules.size() - 1);
-		}
-    }//GEN-LAST:event_buttonAddAllowRuleActionPerformed
 
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
         try {
@@ -1135,12 +1025,10 @@ public class EditorDialog extends javax.swing.JDialog {
 		tableAMQ.setModel(amqModel);
 		this.mailModel = new MailModel(config.getMail());
 		tableMail.setModel(mailModel);
-		this.allowModel = new RuleTableModel(config.getSecurity().allowRules);
-		tableAllowRules.setModel(allowModel);
-		this.denyModel = new RuleTableModel(config.getSecurity().denyRules);
-		tableDenyRules.setModel(denyModel);
-		this.advanceModel = new RuleTableModel(config.getSecurity().dbRules);
-		tableAdvancedRules.setModel(advanceModel);
+		this.ruleModel = new RuleTableModel(config.getSecurity().rules);
+		tableAllowRules.setModel(ruleModel);
+		TableColumnModel columnModel = tableAllowRules.getColumnModel();
+		columnModel.getColumn(0).setCellRenderer(new ImageRenderer());
 		this.matcherModel = new MatcherTableModel(config.getSecurity().matchers);
 		tableMatchers.setModel(matcherModel);
 		textSessionTimeout.setText(String.valueOf(config.getSecurity().sessionTimeout));
@@ -1152,165 +1040,13 @@ public class EditorDialog extends javax.swing.JDialog {
 			comboSessionType.setSelectedIndex(0);
 		else
 			comboSessionType.setSelectedIndex(1);
-		textDBConfig.setText(config.getSecurity().dbConfig);
-		textAMQConfig.setText(config.getSecurity().amqConfig);
+		
+	
+		textDBConfig.getEditor().setItem(config.getSecurity().dbConfig);
+		textAMQConfig.getEditor().setItem(config.getSecurity().amqConfig);
     }//GEN-LAST:event_formWindowOpened
 
-    private void buttonAddMatcherActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonAddMatcherActionPerformed
-        MatcherDialog dialog = new MatcherDialog(this, true);
-		dialog.setVisible(true);
-		URLMatcher matcher = dialog.getMatcher();
-		if (matcher != null) {
-			config.getSecurity().matchers.add(matcher);
-			matcherModel.fireTableDataChanged();
-			tableMatchers.setRowSelectionInterval(config.getSecurity().matchers.size() - 1, config.getSecurity().matchers.size() - 1);
-			labelMatcherInfo.setText(getMathcerDescription(matcher));
-		}
-    }//GEN-LAST:event_buttonAddMatcherActionPerformed
-
-    private void buttonDeleteAllowRulesActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonDeleteAllowRulesActionPerformed
-        List<Rule> removed = new LinkedList<>();
-		for (int rownum : tableAllowRules.getSelectedRows()) {
-			removed.add(config.getSecurity().allowRules.get(rownum));
-		}
-		config.getSecurity().allowRules.removeAll(removed);
-		allowModel.fireTableDataChanged();
-    }//GEN-LAST:event_buttonDeleteAllowRulesActionPerformed
-
-    private void buttonAddDenyRuleActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonAddDenyRuleActionPerformed
-        RuleDialog dialog = new RuleDialog(this, true);
-		dialog.setVisible(true);
-		Rule rule = dialog.getRule();
-		if (rule != null) {
-			config.getSecurity().denyRules.add(rule);
-			denyModel.fireTableDataChanged();
-			tableDenyRules.setRowSelectionInterval(config.getSecurity().denyRules.size() - 1, config.getSecurity().denyRules.size() - 1);
-		}
-    }//GEN-LAST:event_buttonAddDenyRuleActionPerformed
-
-    private void buttonDeleteDenyRulesActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonDeleteDenyRulesActionPerformed
-        List<Rule> removed = new LinkedList<>();
-		for (int rownum : tableDenyRules.getSelectedRows()) {
-			removed.add(config.getSecurity().denyRules.get(rownum));
-		}
-		config.getSecurity().denyRules.removeAll(removed);
-		denyModel.fireTableDataChanged();
-    }//GEN-LAST:event_buttonDeleteDenyRulesActionPerformed
-
-    private void buttonAddAdvancedRuleActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonAddAdvancedRuleActionPerformed
-        RuleDialog dialog = new RuleDialog(this, true);
-		dialog.setVisible(true);
-		Rule rule = dialog.getRule();
-		if (rule != null) {
-			config.getSecurity().dbRules.add(rule);
-			advanceModel.fireTableDataChanged();
-			tableAdvancedRules.setRowSelectionInterval(config.getSecurity().dbRules.size() - 1, config.getSecurity().dbRules.size() - 1);
-		}
-    }//GEN-LAST:event_buttonAddAdvancedRuleActionPerformed
-
-    private void buttonDeleteAdvancedRulesActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonDeleteAdvancedRulesActionPerformed
-        List<Rule> removed = new LinkedList<>();
-		for (int rownum : tableAdvancedRules.getSelectedRows()) {
-			removed.add(config.getSecurity().dbRules.get(rownum));
-		}
-		config.getSecurity().dbRules.removeAll(removed);
-		advanceModel.fireTableDataChanged();
-    }//GEN-LAST:event_buttonDeleteAdvancedRulesActionPerformed
-
-    private void buttonDeleteMatcherActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonDeleteMatcherActionPerformed
-        List<URLMatcher> removed = new LinkedList<>();
-		for (int rownum : tableMatchers.getSelectedRows()) {
-			removed.add(config.getSecurity().matchers.get(rownum));
-		}
-		config.getSecurity().matchers.removeAll(removed);
-		matcherModel.fireTableDataChanged();
-		labelMatcherInfo.setText("");
-    }//GEN-LAST:event_buttonDeleteMatcherActionPerformed
-
-    private void tableAllowRulesMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tableAllowRulesMouseClicked
-        if (evt.getClickCount() == 2) {
-			int rowId = tableAllowRules.getSelectedRow();
-			Rule rule = config.getSecurity().allowRules.get(rowId);
-			RuleDialog dialog = new RuleDialog(this, true);
-			dialog.setRule(rule);
-			dialog.setVisible(true);
-			if (dialog.isOk()) {
-				allowModel.fireTableDataChanged();
-				tableAllowRules.setRowSelectionInterval(rowId, rowId);
-			}
-		}
-    }//GEN-LAST:event_tableAllowRulesMouseClicked
-
-    private void tableDenyRulesMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tableDenyRulesMouseClicked
-        if (evt.getClickCount() == 2) {
-			int rowId = tableDenyRules.getSelectedRow();
-			Rule rule = config.getSecurity().denyRules.get(rowId);
-			RuleDialog dialog = new RuleDialog(this, true);
-			dialog.setRule(rule);
-			dialog.setVisible(true);
-			if (dialog.isOk()) {
-				denyModel.fireTableDataChanged();
-				tableDenyRules.setRowSelectionInterval(rowId, rowId);
-			}
-		}
-    }//GEN-LAST:event_tableDenyRulesMouseClicked
-
-    private void tableAdvancedRulesMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tableAdvancedRulesMouseClicked
-        if (evt.getClickCount() == 2) {
-			int rowId = tableAdvancedRules.getSelectedRow();
-			Rule rule = config.getSecurity().dbRules.get(rowId);
-			RuleDialog dialog = new RuleDialog(this, true);
-			dialog.setRule(rule);
-			dialog.setVisible(true);
-			if (dialog.isOk()) {
-				advanceModel.fireTableDataChanged();
-				tableAdvancedRules.setRowSelectionInterval(rowId, rowId);
-			}
-		}
-    }//GEN-LAST:event_tableAdvancedRulesMouseClicked
-
-	private String getMathcerDescription(URLMatcher matcher) {
-		StringBuilder sb = new StringBuilder();
-		sb.append("<html><div style='color:blue;font-weight:bold;font-size:12px;border-bottom:1px solid #888888;padding:2px 0px;margin:2px 0px;'>Mapping To:</div>");
-		if (matcher.resType != null && !matcher.resType.trim().isEmpty()) {
-			sb.append("<div><span style='font-weight:bold;'>Resource:</span> ");
-			sb.append(matcher.resType);
-			sb.append("</div>");
-		}
-		if (matcher.resId != null && !matcher.resId.trim().isEmpty()) {
-			sb.append("<div><span style='font-weight:bold;'>Resource ID:</span> ");
-			sb.append(matcher.resId);
-			sb.append("</div>");
-		}
-		if (matcher.operation != null && !matcher.operation.trim().isEmpty()) {
-			sb.append("<div><span style='font-weight:bold;'>Operation:</span> ");
-			sb.append(matcher.operation);
-			sb.append("</div>");
-		}
-		if (matcher.scenario != null && !matcher.scenario.trim().isEmpty()) {
-			sb.append("<div><span style='font-weight:bold;'>Scenario:</span> ");
-			sb.append(matcher.scenario);
-			sb.append("</div>");
-		}
-		sb.append("</html>");
-		return sb.toString();
-	}
 	
-    private void tableMatchersMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tableMatchersMouseClicked
-        int rowId = tableMatchers.getSelectedRow();
-		URLMatcher matcher = config.getSecurity().matchers.get(rowId);
-		if (evt.getClickCount() == 2) {
-			MatcherDialog dialog = new MatcherDialog(this, true);
-			dialog.setMatcher(matcher);
-			dialog.setVisible(true);
-			if (dialog.isOk()) {
-				matcherModel.fireTableDataChanged();
-				tableMatchers.setRowSelectionInterval(rowId, rowId);
-			}
-		}
-		labelMatcherInfo.setText(getMathcerDescription(matcher));
-    }//GEN-LAST:event_tableMatchersMouseClicked
-
     private void buttonCancelActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonCancelActionPerformed
         this.dispose();
     }//GEN-LAST:event_buttonCancelActionPerformed
@@ -1326,14 +1062,14 @@ public class EditorDialog extends javax.swing.JDialog {
 		}
 		securitySetting.defaultAllow = (comboDefaultAction.getSelectedIndex() == 0);
 		securitySetting.clientSession = (comboSessionType.getSelectedIndex() == 0);
-		if (textDBConfig.getText().trim().isEmpty())
+		if (((String)textDBConfig.getEditor().getItem()).trim().isEmpty())
 			securitySetting.dbConfig = null;
 		else
-			securitySetting.dbConfig = textDBConfig.getText().trim();
-		if (textAMQConfig.getText().trim().isEmpty())
+			securitySetting.dbConfig = ((String)textDBConfig.getEditor().getItem()).trim();
+		if (((String)textAMQConfig.getEditor().getItem()).trim().isEmpty())
 			securitySetting.amqConfig = null;
 		else
-			securitySetting.amqConfig = textAMQConfig.getText().trim();
+			securitySetting.amqConfig = ((String)textAMQConfig.getEditor().getItem()).trim();
 		
 		String file;
 		if (configFile == null) {
@@ -1367,10 +1103,6 @@ public class EditorDialog extends javax.swing.JDialog {
 		this.dispose();
     }//GEN-LAST:event_buttonOKActionPerformed
 
-    private void comboDefaultActionActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_comboDefaultActionActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_comboDefaultActionActionPerformed
-
     private void buttonAddDBActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonAddDBActionPerformed
         DBDialog dialog = new DBDialog(this, true);
 		dialog.keys = config.getDB().keySet();
@@ -1381,6 +1113,7 @@ public class EditorDialog extends javax.swing.JDialog {
 			dbModel.fireTableDataChanged();
 			int index = dbModel.getKeyIndex(dialog.key);
 			tableDB.setRowSelectionInterval(index, index);
+			syncDBCombo();
 		}
     }//GEN-LAST:event_buttonAddDBActionPerformed
 
@@ -1392,6 +1125,7 @@ public class EditorDialog extends javax.swing.JDialog {
 		for (String key: removed)
 			config.getDB().remove(key);
 		dbModel.fireTableDataChanged();
+		syncDBCombo();
     }//GEN-LAST:event_buttonDeleteDBActionPerformed
 
     private void tableDBMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tableDBMouseClicked
@@ -1417,6 +1151,7 @@ public class EditorDialog extends javax.swing.JDialog {
 		if (item != null && dialog.ok) {
 			config.getAmq().put(dialog.key, item);
 			amqModel.fireTableDataChanged();
+			syncAMQCombo();
 			int index = amqModel.getKeyIndex(dialog.key);
 			tableAMQ.setRowSelectionInterval(index, index);
 		}
@@ -1430,6 +1165,7 @@ public class EditorDialog extends javax.swing.JDialog {
 		for (String key: removed)
 			config.getAmq().remove(key);
 		amqModel.fireTableDataChanged();
+		syncAMQCombo();
     }//GEN-LAST:event_buttonDeleteAMQActionPerformed
 
     private void tableAMQMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tableAMQMouseClicked
@@ -1485,32 +1221,160 @@ public class EditorDialog extends javax.swing.JDialog {
 		}
     }//GEN-LAST:event_tableMailMouseClicked
 
+    private void tableMatchersMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tableMatchersMouseClicked
+        int rowId = tableMatchers.getSelectedRow();
+        URLMatcher matcher = config.getSecurity().matchers.get(rowId);
+        if (evt.getClickCount() == 2) {
+            MatcherDialog dialog = new MatcherDialog(this, true);
+            dialog.setMatcher(matcher);
+			dialog.setMatcherList(config.getSecurity().matchers);
+            dialog.setVisible(true);
+            if (dialog.isOk()) {
+                matcherModel.fireTableDataChanged();
+                tableMatchers.setRowSelectionInterval(rowId, rowId);
+            }
+        }
+    }//GEN-LAST:event_tableMatchersMouseClicked
+
+    private void buttonDeleteMatcherActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonDeleteMatcherActionPerformed
+        List<URLMatcher> removed = new LinkedList<>();
+        for (int rownum : tableMatchers.getSelectedRows()) {
+            removed.add(config.getSecurity().matchers.get(rownum));
+        }
+        config.getSecurity().matchers.removeAll(removed);
+        matcherModel.fireTableDataChanged();
+    }//GEN-LAST:event_buttonDeleteMatcherActionPerformed
+
+    private void buttonAddMatcherActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonAddMatcherActionPerformed
+        MatcherDialog dialog = new MatcherDialog(this, true);
+		dialog.setMatcherList(config.getSecurity().matchers);
+        dialog.setVisible(true);
+        URLMatcher matcher = dialog.getMatcher();
+        if (matcher != null) {
+            config.getSecurity().matchers.add(matcher);
+            matcherModel.fireTableDataChanged();
+            tableMatchers.setRowSelectionInterval(config.getSecurity().matchers.size() - 1, config.getSecurity().matchers.size() - 1);
+        }
+    }//GEN-LAST:event_buttonAddMatcherActionPerformed
+
+    private void buttonDeleteAllowRulesActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonDeleteAllowRulesActionPerformed
+        List<Rule> removed = new LinkedList<>();
+        for (int rownum : tableAllowRules.getSelectedRows()) {
+            removed.add(config.getSecurity().rules.get(rownum));
+        }
+        config.getSecurity().rules.removeAll(removed);
+        ruleModel.fireTableDataChanged();
+    }//GEN-LAST:event_buttonDeleteAllowRulesActionPerformed
+
+    private void buttonAddAllowRuleActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonAddAllowRuleActionPerformed
+        RuleDialog dialog = new RuleDialog(this, true);
+		dialog.setRuleList(config.getSecurity().rules);
+        dialog.setVisible(true);
+        Rule rule = dialog.getRule();
+        if (rule != null) {
+            config.getSecurity().rules.add(rule);
+            ruleModel.fireTableDataChanged();
+            tableAllowRules.setRowSelectionInterval(config.getSecurity().rules.size() - 1, config.getSecurity().rules.size() - 1);
+        }
+    }//GEN-LAST:event_buttonAddAllowRuleActionPerformed
+
+    private void tableAllowRulesMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tableAllowRulesMouseClicked
+        if (evt.getClickCount() == 2) {
+            int rowId = tableAllowRules.getSelectedRow();
+            Rule rule = config.getSecurity().rules.get(rowId);
+            RuleDialog dialog = new RuleDialog(this, true);
+            dialog.setRule(rule);
+			dialog.setRuleList(config.getSecurity().rules);
+            dialog.setVisible(true);
+            if (dialog.isOk()) {
+                ruleModel.fireTableDataChanged();
+                tableAllowRules.setRowSelectionInterval(rowId, rowId);
+            }
+        }
+    }//GEN-LAST:event_tableAllowRulesMouseClicked
+
+	private <T> void MoveItem(JTable table, List<T> collection, int pos) {
+		int[] rows = table.getSelectedRows();
+		int begin = rows[0];
+		pos = begin + pos;
+		if (pos < 0) {
+			pos = 0;
+		}
+		if (pos > collection.size() - rows.length)
+			pos = collection.size() - rows.length;
+		List<T> rules = collection;
+		List<T> moved = new LinkedList<>();
+		for (int i = 0; i < rows.length; i++) {
+			moved.add(0, rules.get(rows[i]));
+		}
+		for (T r: moved) {
+			rules.remove(r);
+		}
+		for (T r: moved) {
+			rules.add(pos, r);
+		}
+		table.setRowSelectionInterval(pos, pos+rows.length - 1);
+		table.updateUI();
+	}
+	
+    private void buttonRuleUpActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonRuleUpActionPerformed
+		MoveItem(tableAllowRules, config.getSecurity().rules, -1);
+    }//GEN-LAST:event_buttonRuleUpActionPerformed
+
+    private void buttonRuleTopActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonRuleTopActionPerformed
+        MoveItem(tableAllowRules, config.getSecurity().rules, -config.getSecurity().rules.size());
+    }//GEN-LAST:event_buttonRuleTopActionPerformed
+
+    private void buttonRuleDownActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonRuleDownActionPerformed
+        MoveItem(tableAllowRules, config.getSecurity().rules, 1);
+    }//GEN-LAST:event_buttonRuleDownActionPerformed
+
+    private void buttonRuleBottomActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonRuleBottomActionPerformed
+        MoveItem(tableAllowRules, config.getSecurity().rules, config.getSecurity().rules.size());
+    }//GEN-LAST:event_buttonRuleBottomActionPerformed
+
+    private void buttonMatcherTopActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonMatcherTopActionPerformed
+        MoveItem(tableMatchers, config.getSecurity().matchers, -config.getSecurity().matchers.size());
+    }//GEN-LAST:event_buttonMatcherTopActionPerformed
+
+    private void buttonMatcherUpActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonMatcherUpActionPerformed
+        MoveItem(tableMatchers, config.getSecurity().matchers, -1);
+    }//GEN-LAST:event_buttonMatcherUpActionPerformed
+
+    private void buttonMatcherDownActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonMatcherDownActionPerformed
+        MoveItem(tableMatchers, config.getSecurity().matchers, 1);
+    }//GEN-LAST:event_buttonMatcherDownActionPerformed
+
+    private void buttonMatcherBottomActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonMatcherBottomActionPerformed
+        MoveItem(tableMatchers, config.getSecurity().matchers, config.getSecurity().matchers.size());
+    }//GEN-LAST:event_buttonMatcherBottomActionPerformed
+
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton buttonAddAMQ;
-    private javax.swing.JButton buttonAddAdvancedRule;
     private javax.swing.JButton buttonAddAllowRule;
     private javax.swing.JButton buttonAddDB;
-    private javax.swing.JButton buttonAddDenyRule;
     private javax.swing.JButton buttonAddMail;
     private javax.swing.JButton buttonAddMatcher;
     private javax.swing.JButton buttonCancel;
     private javax.swing.JButton buttonDeleteAMQ;
-    private javax.swing.JButton buttonDeleteAdvancedRules;
     private javax.swing.JButton buttonDeleteAllowRules;
     private javax.swing.JButton buttonDeleteDB;
-    private javax.swing.JButton buttonDeleteDenyRules;
     private javax.swing.JButton buttonDeleteMail;
     private javax.swing.JButton buttonDeleteMatcher;
+    private javax.swing.JButton buttonMatcherBottom;
+    private javax.swing.JButton buttonMatcherDown;
+    private javax.swing.JButton buttonMatcherTop;
+    private javax.swing.JButton buttonMatcherUp;
     private javax.swing.JButton buttonOK;
+    private javax.swing.JButton buttonRuleBottom;
+    private javax.swing.JButton buttonRuleDown;
+    private javax.swing.JButton buttonRuleTop;
+    private javax.swing.JButton buttonRuleUp;
     private javax.swing.JComboBox comboDefaultAction;
     private javax.swing.JComboBox comboSessionType;
     private javax.swing.JLabel jLabel1;
-    private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel11;
-    private javax.swing.JLabel jLabel12;
-    private javax.swing.JLabel jLabel13;
-    private javax.swing.JLabel jLabel14;
     private javax.swing.JLabel jLabel15;
     private javax.swing.JLabel jLabel16;
     private javax.swing.JLabel jLabel17;
@@ -1520,40 +1384,30 @@ public class EditorDialog extends javax.swing.JDialog {
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
-    private javax.swing.JLabel jLabel6;
     private javax.swing.JLabel jLabel7;
     private javax.swing.JLabel jLabel8;
-    private javax.swing.JLabel jLabel9;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel4;
     private javax.swing.JPanel jPanel5;
     private javax.swing.JScrollPane jScrollPane1;
-    private javax.swing.JScrollPane jScrollPane10;
-    private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JScrollPane jScrollPane4;
     private javax.swing.JScrollPane jScrollPane5;
     private javax.swing.JScrollPane jScrollPane6;
-    private javax.swing.JScrollPane jScrollPane9;
     private javax.swing.JSeparator jSeparator1;
     private javax.swing.JTabbedPane jTabbedPane1;
-    private javax.swing.JLabel labelMatcherInfo;
-    private javax.swing.JPanel panelAdvanced;
     private javax.swing.JPanel panelAllow;
     private javax.swing.JPanel panelCommon;
-    private javax.swing.JPanel panelDeny;
     private javax.swing.JTabbedPane panelProperties;
     private javax.swing.JPanel panelURLMatcher;
     private javax.swing.JTable tableAMQ;
-    private javax.swing.JTable tableAdvancedRules;
     private javax.swing.JTable tableAllowRules;
     private javax.swing.JTable tableDB;
-    private javax.swing.JTable tableDenyRules;
     private javax.swing.JTable tableMail;
     private javax.swing.JTable tableMatchers;
-    private javax.swing.JTextField textAMQConfig;
-    private javax.swing.JTextField textDBConfig;
+    private javax.swing.JComboBox textAMQConfig;
+    private javax.swing.JComboBox textDBConfig;
     private javax.swing.JTextField textSessionTimeout;
     // End of variables declaration//GEN-END:variables
 }

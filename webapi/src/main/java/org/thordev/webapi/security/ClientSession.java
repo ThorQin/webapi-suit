@@ -3,16 +3,23 @@ package org.thordev.webapi.security;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.servlet.ServletContext;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+import javax.servlet.http.HttpSessionContext;
 import org.apache.commons.codec.binary.Base64;
 import org.thordev.webapi.utility.Serializer;
 
@@ -21,7 +28,7 @@ import org.thordev.webapi.utility.Serializer;
  * because client cookie have 4k size store limit, so we shouldn't save must data to the session.
  * @author nuo.qin
  */
-public class ClientSession {
+public class ClientSession implements HttpSession {
 	private final static String sessionName = "webapiSession";
 	private final static String keyCode = "kyj1JEkLQ/5To0AF81vlmA==";
 	private final static Logger logger = Logger.getLogger(ClientSession.class.getName());
@@ -31,6 +38,8 @@ public class ClientSession {
 	private HttpServletResponse response = null;
 	private Map<String, Object> values = null;
 	private boolean isSaved = false;
+	private boolean isNew = true;
+			
 	static {
 		try {
 			enc = new Encryptor(importKey(), "AES");
@@ -92,7 +101,10 @@ public class ClientSession {
 		this.isSaved = false;
 		values = new HashMap<>();
 		values.put("sid", java.util.UUID.randomUUID().toString().replace("-", ""));
-		values.put("timestamp", new Date().getTime());
+		long now = new Date().getTime();
+		values.put("timestamp", now);
+		values.put("creationTime", now);
+		this.isNew = true;
 	}
 	
 	private ClientSession(HttpServletRequest request, HttpServletResponse response, String data) throws Exception {
@@ -102,52 +114,50 @@ public class ClientSession {
 		this.response = response;
 		this.isSaved = false;
 		values = Serializer.fromKryo(enc.decrypt(Base64.decodeBase64(data)));
+		this.isNew = false;
 	}
 	
-	public String id() {
-		return (String)getItem("sid");
+	@Override
+	public String getId() {
+		return (String)getAttribute("sid");
 	}
 	
-	public Date lastAccessTime() {
-		return new Date((Long)getItem("timestamp"));
-	}
+
 	
 	/**
 	 * Set session item
 	 * @param key
 	 * @param value 
 	 */
-	public void setItem(String key, Object value) {
+	@Override
+	public void setAttribute(String key, Object value) {
 		if (key.equals("timestamp") && !(value instanceof Long))
 			return;
 		if (key.equals("sid"))
+			return;
+		if (key.equals("creationTime"))
 			return;
 		values.put(key, value);
 		touch();
 	}
 	
 	public String getString(String key) {
-		return (String)getItem(key);
+		return (String)getAttribute(key);
 	}
 	
 	public Integer getInteger(String key) {
-		return (Integer)getItem(key);
+		return (Integer)getAttribute(key);
 	}
-	/**
-	 * Get session item by key
-	 * @param key Item key
-	 * @return session item
-	 */
-	public Object getItem(String key) {
+
+	@Override
+	public Object getAttribute(String key) {
 		Object value = values.get(key);
 		return value;
 	}
-	/**
-	 * Remove session item
-	 * @param key Item key
-	 */
-	public void removeItem(String key) {
-		if (key.equals("sid") || key.equals("timestamp"))
+
+	@Override
+	public void removeAttribute(String key) {
+		if (key.equals("sid") || key.equals("timestamp") || key.equals("creationTime"))
 			return;
 		values.remove(key);
 		touch();
@@ -157,21 +167,6 @@ public class ClientSession {
 	 */
 	public void touch() {
 		values.put("timestamp", new Date().getTime());
-		this.isSaved = false;
-	}
-	/**
-	 * Clear session data
-	 */
-	public void clear()	{
-		List<String> deleteKeys = new LinkedList<>();
-		for (String key : values.keySet()) {
-			if (!key.equals("sid"))
-				deleteKeys.add(key);
-		}
-		for (String key : deleteKeys) {
-			values.remove(key);
-		}
-		touch();
 		this.isSaved = false;
 	}
 	
@@ -248,7 +243,96 @@ public class ClientSession {
 	 * (same with call 'save' function and pass 0 to maxAge parameter)
 	 */
 	public void delete() {
-		clear();
+		invalidate();
 		save(getRootPath(request), null, 0, false, false);
+	}
+
+	@Override
+	public long getCreationTime() {
+		return (Long)getAttribute("creationTime");
+	}
+
+	@Override
+	public long getLastAccessedTime() {
+		return (Long)getAttribute("timestamp");
+	}
+
+	@Override
+	public ServletContext getServletContext() {
+		return this.request.getServletContext();
+	}
+
+	@Override
+	public void setMaxInactiveInterval(int interval) {
+		setAttribute("maxInactiveInterval", (Integer)interval);
+	}
+
+	@Override
+	public int getMaxInactiveInterval() {
+		return (Integer)getAttribute("maxInactiveInterval");
+	}
+
+	@Override
+	public HttpSessionContext getSessionContext() {
+		return null;
+	}
+
+	@Override
+	public Object getValue(String name) {
+		return getAttribute(name);
+	}
+	
+	public static class IteratorEnumeration<E> implements Enumeration<E> {
+		private final Iterator<E> iterator;
+		public IteratorEnumeration(Iterator<E> iterator){
+			this.iterator = iterator;
+		}
+		@Override
+		public E nextElement() {
+			return iterator.next();
+		}
+		@Override
+		public boolean hasMoreElements() {
+			return iterator.hasNext();
+		}
+	}
+
+	@Override
+	public Enumeration<String> getAttributeNames() {
+		return new IteratorEnumeration(values.keySet().iterator());
+	}
+
+	@Override
+	public String[] getValueNames() {
+		return (String[])values.keySet().toArray();
+	}
+
+	@Override
+	public void putValue(String name, Object value) {
+		setAttribute(name, value);
+	}
+
+	@Override
+	public void removeValue(String name) {
+		removeAttribute(name);
+	}
+
+	@Override
+	public void invalidate() {
+		List<String> deleteKeys = new LinkedList<>();
+		for (String key : values.keySet()) {
+			if (!key.equals("sid"))
+				deleteKeys.add(key);
+		}
+		for (String key : deleteKeys) {
+			values.remove(key);
+		}
+		touch();
+		this.isSaved = false;
+	}
+
+	@Override
+	public boolean isNew() {
+		return this.isNew;
 	}
 }

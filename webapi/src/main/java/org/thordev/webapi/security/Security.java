@@ -38,9 +38,11 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import org.thordev.webapi.Dispatcher;
-import org.thordev.webapi.utility.Serializer;
 import org.thordev.webapi.amq.AMQ;
 import org.thordev.webapi.database.annotation.DBInterface;
+import static org.thordev.webapi.security.SecuritySetting.RuleAction.ALLOW;
+import static org.thordev.webapi.security.SecuritySetting.RuleAction.DENY;
+import org.thordev.webapi.utility.Serializer;
 
 
 /**
@@ -202,50 +204,52 @@ public final class Security {
 		}
 	}
 	
-	public boolean checkPermission(
+	public static class CheckPermissionResult {
+		public boolean allow;
+		public String ruleName;
+		public CheckPermissionResult(boolean allow) {
+			this.allow = allow;
+			ruleName = null;
+		}
+		public CheckPermissionResult(boolean allow, String rule) {
+			this.allow = allow;
+			ruleName = rule;
+		}
+	}
+	
+	public CheckPermissionResult checkPermission(
 				String resType, String resId, String operation, 
 				String user, String role, String scenario) {
 		SecuritySetting setting = config.get();
-		for (SecuritySetting.Rule rule: setting.denyRules) {
-			if (rule.match(resType, resId, operation, user, role, scenario))
-				return false;
-		}
-		for (SecuritySetting.Rule rule: setting.allowRules) {
-			if (rule.match(resType, resId, operation, user, role, scenario))
-				return true;
-		}
-		if (setting.dbConfig != null && !setting.dbConfig.trim().isEmpty()) {
-			SecurityAPI api = null;
-			try {
-				api = Dispatcher.getDBProxy(setting.dbConfig, SecurityAPI.class);
-			} catch (Exception ex) {
-				logger.log(Level.SEVERE, "Get DB interface failed.", ex);
-			}
-			for (SecuritySetting.Rule rule: setting.dbRules) {
-				if (rule.match(resType, resId, operation, user, role, scenario)) {
-					if (api == null) {
-						return false;
-					} else {
-						try {
-							return api.checkPermission(resType, resId, operation, user, role, scenario);
-						} catch (Exception ex) {
-							logger.log(Level.SEVERE, "Check privilege through DB raise an exception.", ex);
-							return false;
-						}
+		for (SecuritySetting.Rule rule: setting.rules) {
+			if (rule.match(resType, resId, operation, user, role, scenario)) {
+				if (rule.action == ALLOW)
+					return new CheckPermissionResult(true, rule.name);
+				else if (rule.action == DENY) {
+					logger.log(Level.INFO, "Permission denied.");
+					return new CheckPermissionResult(false, rule.name);
+				} else if (setting.dbConfig != null && !setting.dbConfig.trim().isEmpty()) {
+					try {
+						SecurityAPI api = Dispatcher.getDBProxy(setting.dbConfig, SecurityAPI.class);
+						boolean result = api.checkPermission(resType, resId, operation, user, role, scenario);
+						return new CheckPermissionResult(result, rule.name);
+					} catch (Exception ex) {
+						logger.log(Level.SEVERE, "Check permission raise a DB exception, access denied!", ex);
+						return new CheckPermissionResult(false, rule.name);
 					}
 				}
 			}
 		}
-		return setting.defaultAllow;
+		return new CheckPermissionResult(setting.defaultAllow);
 	}
 	
-	public boolean checkPermission(MappingInfo info, String user, String role) {
+	private CheckPermissionResult checkPermission(MappingInfo info, String user, String role) {
 		return checkPermission(info.resType, info.resId, info.operation, 
 				user, role, info.scenario);
 	}
 	
-	public boolean checkPermission(HttpServletRequest request, HttpServletResponse response, 
-			String user, String role) {
+	private boolean checkPermission(HttpServletRequest request, HttpServletResponse response, 
+			String user, String role, HttpSession session) {
 		String pathInfo = request.getPathInfo();
 		String servletPath = request.getServletPath();
 		String queryString = request.getQueryString();
@@ -254,13 +258,23 @@ public final class Security {
 		System.out.println("Check permission: " + path);
 		MappingInfo info = mappingURL(path, 
 				request.getScheme().toLowerCase(), request.getServerName().toLowerCase(), 
-				request.getMethod().toLowerCase(), request.getServerPort());
-		if (checkPermission(info, user, role)) {
+				request.getMethod().toLowerCase(), request.getServerPort(), session);
+		CheckPermissionResult result = checkPermission(info, user, role);
+		if (result.allow) {
 			return true;
 		} else {
 			try {
-				if (info.redirectUrl != null) {
-					response.sendRedirect(info.redirectUrl);
+				if (info.redirection != null) {
+					String redirectUrl = info.redirection.get(result.ruleName);
+					if (redirectUrl != null)
+						response.sendRedirect(redirectUrl);
+					else {
+						redirectUrl = info.redirection.get("");
+						if (redirectUrl != null)
+							response.sendRedirect(redirectUrl);
+						else
+							response.sendError(HttpServletResponse.SC_FORBIDDEN);
+					}
 				} else {
 					response.sendError(HttpServletResponse.SC_FORBIDDEN);
 				}
@@ -275,24 +289,25 @@ public final class Security {
 		String user = null;
 		String role = null;
 		SecuritySetting setting = config.get();
+		HttpSession session;
 		if (setting.clientSession) {
-			ClientSession session = ClientSession.fromCookie(request, response);
+			session = ClientSession.fromCookie(request, response);
 			if (session != null && (setting.sessionTimeout <= 0 || 
-					(new Date().getTime() - session.lastAccessTime().getTime()) < 
+					(new Date().getTime() - session.getLastAccessedTime()) < 
 					setting.sessionTimeout * 1000)) {
-				user = (String)session.getItem("user");
-				role = (String)session.getItem("role");
+				user = (String)session.getAttribute("user");
+				role = (String)session.getAttribute("role");
 			}
 		} else {
-			HttpSession session = request.getSession();
+			session = request.getSession();
 			user = (String)session.getAttribute("user");
 			role = (String)session.getAttribute("role");
 		}
-		return checkPermission(request, response, user, role);
+		return checkPermission(request, response, user, role, session);
 	}
 	
 	public static class MappingInfo {
-		public String redirectUrl;
+		public Map<String, String> redirection;
 		public String resType;
 		public String resId;
 		public String operation;
@@ -300,13 +315,13 @@ public final class Security {
 	}
 	
 	public synchronized MappingInfo mappingURL(String url, String schema,
-			String domain, String method, int port) {
+			String domain, String method, int port, HttpSession session) {
 		SecuritySetting setting = config.get();
 		Map<String, String> parameters = new HashMap<>();
 		MappingInfo info = new MappingInfo();
 		for (SecuritySetting.URLMatcher matcher : setting.matchers) {
-			if (matcher.match(url, schema, domain, method, port, parameters)) {
-				info.redirectUrl = matcher.redirectUrl;
+			if (matcher.match(url, schema, domain, method, port, session, parameters)) {
+				info.redirection = matcher.redirection;
 				info.resType = matcher.resType;
 				info.resId = matcher.resId;
 				info.operation = matcher.operation;
@@ -329,8 +344,8 @@ public final class Security {
 		SecuritySetting setting = instance.config.get();
 		if (setting.clientSession) {
 			ClientSession session = ClientSession.fromCookie(request, response);
-			session.setItem("user", user);
-			session.setItem("role", role);
+			session.setAttribute("user", user);
+			session.setAttribute("role", role);
 			session.save();
 		} else {
 			HttpSession session = request.getSession();
@@ -347,7 +362,6 @@ public final class Security {
 			SecuritySetting setting = instance.config.get();
 			if (setting.clientSession) {
 				ClientSession session = ClientSession.fromCookie(request, response);
-				session.clear();
 				session.delete();
 			} else {
 				HttpSession session = request.getSession();
