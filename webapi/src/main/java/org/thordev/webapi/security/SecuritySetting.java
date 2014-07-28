@@ -63,7 +63,7 @@ public class SecuritySetting {
 				info.parameters = new HashMap<>();
 				String formattedUrl = RuleMatcher.formatUrlRule(u, info.parameters);
 				info.pattern = Pattern.compile(formattedUrl);
-				matcher.addRule(resType, info);
+				matcher.addRule(formattedUrl, info);
 			}
 			matcher.build();
 		}
@@ -140,12 +140,16 @@ public class SecuritySetting {
 			if (!(this.scenario == null || this.scenario.isEmpty() || this.scenario.contains(scenario)))
 				return false;
 			
-			return this.role.contains("*") || 
-					this.user.contains("*") ||
-					(this.role.contains("?") && role == null) ||
-					(this.user.contains("?") && user == null) ||
-					this.role.contains(role) ||
-					this.user.contains(user);
+			if (this.user != null && 
+					(this.user.contains("*") || 
+					(this.user.contains("?") && user == null) || 
+					this.user.contains(user))) {
+				return true;
+			} else 
+				return this.role != null && 
+						(this.role.contains("*") || 
+						(this.role.contains("?") && role == null) || 
+						this.role.contains(role));
 		}
 	}
 	public List<Rule> rules = new LinkedList<>();

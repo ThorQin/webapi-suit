@@ -58,7 +58,9 @@ public class StringUtil {
 		if (value == null)
 			return result;
 		String[] array = value.split(delimiter);
-		result.addAll(Arrays.asList(array));
+		for (String v: array)
+			if (v != null && !v.isEmpty())
+				result.add(v);
 		return result;
 	}
 	public static String join(Iterable<String> array) {
