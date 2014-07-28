@@ -14,6 +14,7 @@ import org.thordev.webapi.security.SecuritySetting.Rule;
 import static org.thordev.webapi.security.SecuritySetting.RuleAction.allow;
 import static org.thordev.webapi.security.SecuritySetting.RuleAction.check_db;
 import static org.thordev.webapi.security.SecuritySetting.RuleAction.deny;
+import org.thordev.webapi.utility.StringUtil;
 
 /**
  *
@@ -90,13 +91,13 @@ public class RuleDialog extends javax.swing.JDialog {
         jLabel7.setToolTipText("");
 
         jLabel13.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/tooltip.png"))); // NOI18N
-        jLabel13.setToolTipText("<html>Can specify multiple roles, use ',' to split items.<br> <span style='color:red'>If keep empty that means no role will be matched, <br>specify '*' means all roles will be matched.</span></html>");
+        jLabel13.setToolTipText("<html>Can specify multiple roles, use ',' to split items.<br>\n<span style='color:red'>If keep empty that means no role will be matched, \n<br>specify '?' means match the un-logged in role,\n<br>specify '*' means all roles will be matched.</span></html>");
 
         jLabel1.setFont(new java.awt.Font("Tahoma", 1, 13)); // NOI18N
         jLabel1.setText("Resource Type (must)");
 
         jLabel14.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/tooltip.png"))); // NOI18N
-        jLabel14.setToolTipText("<html>Can specify multiple users, use ',' to split items. <br><span style='color:red'>If keep empty that means no one will be matched,<br>specify '*' means all users will be matched.</span></html>");
+        jLabel14.setToolTipText("<html>Can specify multiple users, use ',' to split items. \n<br><span style='color:red'>If keep empty that means no one will be matched,\n<br>specify '?' means match the un-logged in user,\n<br>specify '*' means all users will be matched.</span></html>");
 
         jLabel15.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/thordev/webapi/smc/tooltip.png"))); // NOI18N
         jLabel15.setToolTipText("<html>Specify '*' means will match all resources and resource id will be ignored. <br>Does not support multiple resource types. </html>");
@@ -238,9 +239,9 @@ public class RuleDialog extends javax.swing.JDialog {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(textResourceType, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(jLabel7, javax.swing.GroupLayout.PREFERRED_SIZE, 16, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(jLabel13))
+                        .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jLabel13)
+                            .addComponent(jLabel7, javax.swing.GroupLayout.PREFERRED_SIZE, 16, javax.swing.GroupLayout.PREFERRED_SIZE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(textRole, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -310,11 +311,11 @@ public class RuleDialog extends javax.swing.JDialog {
 		textRuleName.setText(rule.name);
 		textDescription.setText(rule.description);
 		textResourceType.setText(rule.resType);
-		textResourceId.setText(Security.join(rule.resId));
-		textOperation.setText(Security.join(rule.operation));
-		textRole.setText(Security.join(rule.role));
-		textUser.setText(Security.join(rule.user));
-		textScenario.setText(Security.join(rule.scenario));
+		textResourceId.setText(StringUtil.join(rule.resId));
+		textOperation.setText(StringUtil.join(rule.operation));
+		textRole.setText(StringUtil.join(rule.role));
+		textUser.setText(StringUtil.join(rule.user));
+		textScenario.setText(StringUtil.join(rule.scenario));
 		if (rule.action == allow) {
 			radioAllow.setSelected(true);
 		} else if (rule.action == deny) {
@@ -383,11 +384,11 @@ public class RuleDialog extends javax.swing.JDialog {
 		rule.action = radioAllow.isSelected() ? allow : (radioDeny.isSelected() ? deny : check_db);
 		rule.description = textDescription.getText().trim();
 		rule.resType = textResourceType.getText().trim();
-		rule.resId = Security.split(textResourceId.getText());
-		rule.operation = Security.split(textOperation.getText());
-		rule.role = Security.split(textRole.getText());
-		rule.user = Security.split(textUser.getText());
-		rule.scenario = Security.split(textScenario.getText());
+		rule.resId = StringUtil.toStringSet(textResourceId.getText());
+		rule.operation = StringUtil.toStringSet(textOperation.getText());
+		rule.role = StringUtil.toStringSet(textRole.getText());
+		rule.user = StringUtil.toStringSet(textUser.getText());
+		rule.scenario = StringUtil.toStringSet(textScenario.getText());
 		ok = true;
 		this.dispose();
     }//GEN-LAST:event_buttonOKActionPerformed

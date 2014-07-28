@@ -198,9 +198,9 @@
                           <EmptySpace max="-2" attributes="0"/>
                           <Component id="textResourceType" min="-2" max="-2" attributes="0"/>
                           <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                          <Group type="103" groupAlignment="3" attributes="0">
-                              <Component id="jLabel7" alignment="3" min="-2" pref="16" max="-2" attributes="0"/>
+                          <Group type="103" groupAlignment="0" attributes="0">
                               <Component id="jLabel13" alignment="0" min="-2" max="-2" attributes="0"/>
+                              <Component id="jLabel7" min="-2" pref="16" max="-2" attributes="0"/>
                           </Group>
                           <EmptySpace max="-2" attributes="0"/>
                           <Component id="textRole" min="-2" max="-2" attributes="0"/>
@@ -243,7 +243,7 @@
             <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
               <Image iconType="3" name="/org/thordev/webapi/smc/tooltip.png"/>
             </Property>
-            <Property name="toolTipText" type="java.lang.String" value="&lt;html&gt;Can specify multiple roles, use &apos;,&apos; to split items.&lt;br&gt; &lt;span style=&apos;color:red&apos;&gt;If keep empty that means no role will be matched, &lt;br&gt;specify &apos;*&apos; means all roles will be matched.&lt;/span&gt;&lt;/html&gt;"/>
+            <Property name="toolTipText" type="java.lang.String" value="&lt;html&gt;Can specify multiple roles, use &apos;,&apos; to split items.&lt;br&gt;&#xa;&lt;span style=&apos;color:red&apos;&gt;If keep empty that means no role will be matched, &#xa;&lt;br&gt;specify &apos;?&apos; means match the un-logged in role,&#xa;&lt;br&gt;specify &apos;*&apos; means all roles will be matched.&lt;/span&gt;&lt;/html&gt;"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel1">
@@ -259,7 +259,7 @@
             <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
               <Image iconType="3" name="/org/thordev/webapi/smc/tooltip.png"/>
             </Property>
-            <Property name="toolTipText" type="java.lang.String" value="&lt;html&gt;Can specify multiple users, use &apos;,&apos; to split items. &lt;br&gt;&lt;span style=&apos;color:red&apos;&gt;If keep empty that means no one will be matched,&lt;br&gt;specify &apos;*&apos; means all users will be matched.&lt;/span&gt;&lt;/html&gt;"/>
+            <Property name="toolTipText" type="java.lang.String" value="&lt;html&gt;Can specify multiple users, use &apos;,&apos; to split items. &#xa;&lt;br&gt;&lt;span style=&apos;color:red&apos;&gt;If keep empty that means no one will be matched,&#xa;&lt;br&gt;specify &apos;?&apos; means match the un-logged in user,&#xa;&lt;br&gt;specify &apos;*&apos; means all users will be matched.&lt;/span&gt;&lt;/html&gt;"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel15">

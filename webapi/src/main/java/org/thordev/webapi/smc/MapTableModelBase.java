@@ -43,7 +43,7 @@ public abstract class MapTableModelBase<T> extends AbstractTableModel {
 		return columns.length;
 	}
 	
-	protected abstract String getColValue(int columnIndex, Map.Entry<String, T> entry);
+	protected abstract Object getColValue(int columnIndex, Map.Entry<String, T> entry);
 
 	@Override
 	public Object getValueAt(int rowIndex, int columnIndex) {

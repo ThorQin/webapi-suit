@@ -1010,6 +1010,9 @@ public class EditorDialog extends javax.swing.JDialog {
 				try {
 					config = new WebConfig(configFile);
 				} catch (Exception ex) {
+					JOptionPane.showMessageDialog(null, 
+						"Incompatable configuration format, maybe old version support has been stopped!", 
+						"Error", JOptionPane.ERROR_MESSAGE);
 					config = new WebConfig();
 				}
 			} else {
@@ -1041,9 +1044,11 @@ public class EditorDialog extends javax.swing.JDialog {
 		else
 			comboSessionType.setSelectedIndex(1);
 		
-	
+		syncDBCombo();
+		syncAMQCombo();
 		textDBConfig.getEditor().setItem(config.getSecurity().dbConfig);
 		textAMQConfig.getEditor().setItem(config.getSecurity().amqConfig);
+		
     }//GEN-LAST:event_formWindowOpened
 
 	

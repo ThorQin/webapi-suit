@@ -17,6 +17,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -694,7 +695,10 @@ public final class Dispatcher extends HttpServlet {
 			// Obtain Client Session From Cookie
 			mInfo.clientSession = ClientSession.fromCookie(request, response);
 			if (mInfo.clientSession != null) {
-				mInfo.clientSession.touch();
+				if (mInfo.clientSession.isExpired()) {
+					mInfo.clientSession = null;
+				} else
+					mInfo.clientSession.touch();
 			}
 			WebEntry entryAnno = info.method.getAnnotation(WebEntry.class);
 			if (entryAnno != null && entryAnno.crossSite()) {

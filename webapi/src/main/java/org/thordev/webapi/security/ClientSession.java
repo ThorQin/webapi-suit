@@ -36,10 +36,19 @@ public class ClientSession implements HttpSession {
 	
 	private HttpServletRequest request = null;
 	private HttpServletResponse response = null;
-	private Map<String, Object> values = null;
+	//private Map<String, Object> values = null;
 	private boolean isSaved = false;
 	private boolean isNew = true;
-			
+	
+	private static class Data {
+		public String sid;
+		public long lastAccessedTime;
+		public long creationTime;
+		public int maxInterval = 0;
+		public Map<String, Object> values = null;
+	}
+	private Data value;
+	
 	static {
 		try {
 			enc = new Encryptor(importKey(), "AES");
@@ -60,8 +69,17 @@ public class ClientSession implements HttpSession {
 		}
 	}
 	
+	public static ClientSession getSession(HttpServletRequest request, HttpServletResponse response) {
+		ClientSession session = fromCookie(request, response);
+		if (session == null)
+			return newSession(request, response);
+		else
+			return session;
+	}
+	
 	public static ClientSession newSession(HttpServletRequest request, HttpServletResponse response) {
 		ClientSession inst = new ClientSession(request, response);
+		inst.setMaxInactiveInterval(Security.getMaxSessionInactiveInterval());
 		request.setAttribute("org.thordev.webapi.security.ClientSession", inst);
 		return inst;
 	}
@@ -99,11 +117,12 @@ public class ClientSession implements HttpSession {
 		this.request = request;
 		this.response = response;
 		this.isSaved = false;
-		values = new HashMap<>();
-		values.put("sid", java.util.UUID.randomUUID().toString().replace("-", ""));
+		value = new Data();
+		value.sid = java.util.UUID.randomUUID().toString().replace("-", "");
+		value.values = new HashMap<>();
 		long now = new Date().getTime();
-		values.put("timestamp", now);
-		values.put("creationTime", now);
+		value.creationTime = now;
+		value.lastAccessedTime = now;
 		this.isNew = true;
 	}
 	
@@ -113,13 +132,13 @@ public class ClientSession implements HttpSession {
 		this.request = request;
 		this.response = response;
 		this.isSaved = false;
-		values = Serializer.fromKryo(enc.decrypt(Base64.decodeBase64(data)));
+		value = Serializer.fromKryo(enc.decrypt(Base64.decodeBase64(data)));
 		this.isNew = false;
 	}
 	
 	@Override
 	public String getId() {
-		return (String)getAttribute("sid");
+		return value.sid;
 	}
 	
 
@@ -131,13 +150,7 @@ public class ClientSession implements HttpSession {
 	 */
 	@Override
 	public void setAttribute(String key, Object value) {
-		if (key.equals("timestamp") && !(value instanceof Long))
-			return;
-		if (key.equals("sid"))
-			return;
-		if (key.equals("creationTime"))
-			return;
-		values.put(key, value);
+		this.value.values.put(key, value);
 		touch();
 	}
 	
@@ -151,22 +164,27 @@ public class ClientSession implements HttpSession {
 
 	@Override
 	public Object getAttribute(String key) {
-		Object value = values.get(key);
-		return value;
+		Object findValue = this.value.values.get(key);
+		return findValue;
 	}
 
 	@Override
 	public void removeAttribute(String key) {
-		if (key.equals("sid") || key.equals("timestamp") || key.equals("creationTime"))
-			return;
-		values.remove(key);
+		this.value.values.remove(key);
 		touch();
+	}
+	
+	public boolean isExpired() {
+		if (this.getMaxInactiveInterval() <= 0)
+			return false;
+		else
+			return (new Date().getTime() - getLastAccessedTime() > getMaxInactiveInterval() * 1000);
 	}
 	/**
 	 * Update session timestamp to now
 	 */
 	public void touch() {
-		values.put("timestamp", new Date().getTime());
+		value.lastAccessedTime = new Date().getTime();
 		this.isSaved = false;
 	}
 	
@@ -181,7 +199,7 @@ public class ClientSession implements HttpSession {
 	@Override
 	public String toString() {
 		try {
-			return Base64.encodeBase64String(enc.encrypt(Serializer.toKryo(values)));
+			return Base64.encodeBase64String(enc.encrypt(Serializer.toKryo(value)));
 		} catch (Exception ex) {
 			logger.log(Level.SEVERE, "Export session failed", ex);
 			return null;
@@ -247,14 +265,19 @@ public class ClientSession implements HttpSession {
 		save(getRootPath(request), null, 0, false, false);
 	}
 
+	public void checkExpired() {
+		if (isExpired())
+			invalidate();
+	}
+	
 	@Override
 	public long getCreationTime() {
-		return (Long)getAttribute("creationTime");
+		return value.creationTime;
 	}
 
 	@Override
 	public long getLastAccessedTime() {
-		return (Long)getAttribute("timestamp");
+		return value.lastAccessedTime;
 	}
 
 	@Override
@@ -264,12 +287,12 @@ public class ClientSession implements HttpSession {
 
 	@Override
 	public void setMaxInactiveInterval(int interval) {
-		setAttribute("maxInactiveInterval", (Integer)interval);
+		value.maxInterval = interval;
 	}
 
 	@Override
 	public int getMaxInactiveInterval() {
-		return (Integer)getAttribute("maxInactiveInterval");
+		return value.maxInterval;
 	}
 
 	@Override
@@ -299,12 +322,12 @@ public class ClientSession implements HttpSession {
 
 	@Override
 	public Enumeration<String> getAttributeNames() {
-		return new IteratorEnumeration(values.keySet().iterator());
+		return new IteratorEnumeration(value.values.keySet().iterator());
 	}
 
 	@Override
 	public String[] getValueNames() {
-		return (String[])values.keySet().toArray();
+		return (String[])value.values.keySet().toArray();
 	}
 
 	@Override
@@ -319,14 +342,7 @@ public class ClientSession implements HttpSession {
 
 	@Override
 	public void invalidate() {
-		List<String> deleteKeys = new LinkedList<>();
-		for (String key : values.keySet()) {
-			if (!key.equals("sid"))
-				deleteKeys.add(key);
-		}
-		for (String key : deleteKeys) {
-			values.remove(key);
-		}
+		value.values.clear();
 		touch();
 		this.isSaved = false;
 	}

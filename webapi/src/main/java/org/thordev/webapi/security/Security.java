@@ -42,6 +42,7 @@ import org.thordev.webapi.amq.AMQ;
 import org.thordev.webapi.database.annotation.DBInterface;
 import static org.thordev.webapi.security.SecuritySetting.RuleAction.allow;
 import static org.thordev.webapi.security.SecuritySetting.RuleAction.deny;
+import org.thordev.webapi.security.SecuritySetting.URLMatcher.RedirectionInfo;
 import org.thordev.webapi.utility.Serializer;
 
 
@@ -86,35 +87,6 @@ public final class Security {
 		public boolean checkPermission(
 				String resType, String resId, String operation, 
 				String user, String role, String scenario);
-	}
-	
-	public static String join(Set<String> src) {
-		if (src == null)
-			return "";
-		StringBuilder sb = new StringBuilder();
-		boolean isEmpty = true;
-		for (String v: src) {
-			if (!isEmpty)
-				sb.append(",");
-			sb.append(v.trim());
-			isEmpty = false;
-		}
-		return sb.toString();
-	}
-	public static Set<String> split(String src) {
-		return split(src, false);
-	}
-	public static Set<String> split(String src, boolean toLowerCase) {
-		if (src.trim().isEmpty())
-			return null;
-		Set<String> result = new HashSet<>();
-		for (String v: src.split(",")) {
-			if (toLowerCase)
-				result.add(v.trim().toLowerCase());
-			else
-				result.add(v.trim());
-		}
-		return result;
 	}
 
 	private Security(boolean syncFromRemote) throws IOException, SQLException, JMSException {
@@ -165,37 +137,6 @@ public final class Security {
 			}
 		}
 	}
-	
-//	public static void saveSetting(SecurityConfig setting, String configFile) {
-//		try {
-//			if (!configFile.toLowerCase().endsWith(".security"))
-//				configFile += ".security";
-//			Serializer.saveJsonFile(setting, configFile, true);
-//		} catch (Exception ex) {
-//			setting = new SecurityConfig();
-//		}
-//		SecurityConfig aSetting = Serializer.copy(setting);
-//		if (setting.dbConfig != null && !setting.dbConfig.isEmpty()) {
-//			try {
-//				SecurityAPI api = Dispatcher.getDBProxy(setting.dbConfig, SecurityAPI.class);
-//				aSetting.dbConfig = null;
-//				aSetting.amqConfig = null;
-//				api.saveSetting(Serializer.toJsonString(aSetting));
-//			} catch (Exception ex) {
-//				logger.log(Level.SEVERE, "Save database security setting failed.", ex);
-//			}
-//		}
-//		if (setting.amqConfig != null && !setting.amqConfig.isEmpty()) {
-//			try  {
-//				AMQ amq = new AMQ(setting.amqConfig);
-//				AMQ.Sender sender = amq.createSender();
-//				sender.send("changed", aSetting);
-//			} catch (Exception ex) {
-//				logger.log(Level.SEVERE, "Save database security setting failed.", ex);
-//			}
-//		}
-//	}
-	
 	
 	public void close() {
 		if (receiver != null) {
@@ -265,16 +206,11 @@ public final class Security {
 		} else {
 			try {
 				if (info.redirection != null) {
-					String redirectUrl = info.redirection.get(result.ruleName);
+					String redirectUrl = info.getRedirectionUrl(role, user);
 					if (redirectUrl != null)
 						response.sendRedirect(redirectUrl);
-					else {
-						redirectUrl = info.redirection.get("");
-						if (redirectUrl != null)
-							response.sendRedirect(redirectUrl);
-						else
-							response.sendError(HttpServletResponse.SC_FORBIDDEN);
-					}
+					else
+						response.sendError(HttpServletResponse.SC_FORBIDDEN);
 				} else {
 					response.sendError(HttpServletResponse.SC_FORBIDDEN);
 				}
@@ -292,9 +228,7 @@ public final class Security {
 		HttpSession session;
 		if (setting.clientSession) {
 			session = ClientSession.fromCookie(request, response);
-			if (session != null && (setting.sessionTimeout <= 0 || 
-					(new Date().getTime() - session.getLastAccessedTime()) < 
-					setting.sessionTimeout * 1000)) {
+			if (session != null && !((ClientSession)session).isExpired()) {
 				user = (String)session.getAttribute("user");
 				role = (String)session.getAttribute("role");
 			}
@@ -307,11 +241,25 @@ public final class Security {
 	}
 	
 	public static class MappingInfo {
-		public Map<String, String> redirection;
+		public Map<String, RedirectionInfo> redirection;
 		public String resType;
 		public String resId;
 		public String operation;
 		public String scenario;
+		public String getRedirectionUrl(String role, String user) {
+			for (Map.Entry<String,RedirectionInfo> r: redirection.entrySet()) {
+				RedirectionInfo info = r.getValue();
+				if (info.roles.contains("*") || 
+						info.users.contains("*") ||
+						(info.roles.contains("?") && role == null) ||
+						(info.users.contains("?") && user == null) ||
+						info.roles.contains(role) || 
+						info.users.contains(user)) {
+					return r.getKey();
+				} 
+			}
+			return null;
+		}
 	}
 	
 	public synchronized MappingInfo mappingURL(String url, String schema,
@@ -343,7 +291,8 @@ public final class Security {
 			return;
 		SecuritySetting setting = instance.config.get();
 		if (setting.clientSession) {
-			ClientSession session = ClientSession.fromCookie(request, response);
+			ClientSession session = ClientSession.getSession(request, response);
+			session.setMaxInactiveInterval(setting.sessionTimeout);
 			session.setAttribute("user", user);
 			session.setAttribute("role", role);
 			session.save();
@@ -362,7 +311,8 @@ public final class Security {
 			SecuritySetting setting = instance.config.get();
 			if (setting.clientSession) {
 				ClientSession session = ClientSession.fromCookie(request, response);
-				session.delete();
+				if (session != null)
+					session.delete();
 			} else {
 				HttpSession session = request.getSession();
 				session.invalidate();
@@ -370,5 +320,11 @@ public final class Security {
 		} catch (Exception ex) {
 			logger.log(Level.WARNING, "Logout exception!.", ex);
 		}
+	}
+	
+	public static int getMaxSessionInactiveInterval() {
+		if (instance == null)
+			return 180;
+		return instance.config.get().sessionTimeout;
 	}
 }

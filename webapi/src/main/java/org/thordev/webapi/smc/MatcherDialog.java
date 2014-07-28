@@ -7,16 +7,13 @@
 package org.thordev.webapi.smc;
 
 import java.awt.Dialog;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import javax.swing.JOptionPane;
-import org.thordev.webapi.security.Security;
-import org.thordev.webapi.security.SecuritySetting;
 import org.thordev.webapi.security.SecuritySetting.URLMatcher;
+import org.thordev.webapi.security.SecuritySetting.URLMatcher.RedirectionInfo;
 import org.thordev.webapi.utility.StringUtil;
 
 /**
@@ -43,18 +40,20 @@ public class MatcherDialog extends javax.swing.JDialog {
 		}
 
 	}
-	class RedirectionModel extends MapTableModelBase<String> {
-		public RedirectionModel(Map<String, String> items) {
-			super(items, new String[]{"Rule Name", "Redirection URL"});
+	class RedirectionModel extends MapTableModelBase<RedirectionInfo> {
+		public RedirectionModel(Map<String, RedirectionInfo> items) {
+			super(items, new String[]{"Redirection URL", "Roles", "Users"});
 		}
 
 		@Override
-		protected String getColValue(int columnIndex, Map.Entry<String, String> entry) {
+		protected Object getColValue(int columnIndex, Map.Entry<String, RedirectionInfo> entry) {
 			switch (columnIndex) {
 				case 0:
 					return entry.getKey();
 				case 1:
-					return entry.getValue();
+					return entry.getValue().roles;
+				case 2:
+					return entry.getValue().users;
 				default:
 					return null;
 			}
@@ -468,11 +467,11 @@ public class MatcherDialog extends javax.swing.JDialog {
 
             },
             new String [] {
-                "Rule Name", "Redirection URL"
+                "Redirection URL", "Roles", "Users"
             }
         ) {
             Class[] types = new Class [] {
-                java.lang.String.class, java.lang.String.class
+                java.lang.String.class, java.lang.String.class, java.lang.Object.class
             };
 
             public Class getColumnClass(int columnIndex) {
@@ -588,11 +587,11 @@ public class MatcherDialog extends javax.swing.JDialog {
 		   matcher = new URLMatcher();
 		textMatcherName.setText(matcher.name);
 		textDescription.setText(matcher.description);
-		textURL.setText(matcher.url);
-		textProtocol.setText(Security.join(matcher.scheme));
-		textDomain.setText(Security.join(matcher.domain));
-		textMethod.setText(Security.join(matcher.method));
-		textPort.setText(Security.join(matcher.port));
+		textURL.setText(StringUtil.join(matcher.url));
+		textProtocol.setText(StringUtil.join(matcher.scheme));
+		textDomain.setText(StringUtil.join(matcher.domain));
+		textMethod.setText(StringUtil.join(matcher.method));
+		textPort.setText(StringUtil.join(matcher.port));
 		
 		textResourceType.setText(matcher.resType);
 		textResourceID.setText(matcher.resId);
@@ -644,11 +643,11 @@ public class MatcherDialog extends javax.swing.JDialog {
 		}
 		matcher.name = name;
 		matcher.description = textDescription.getText();
-		matcher.url = textURL.getText();
-		matcher.scheme = Security.split(textProtocol.getText(),true);
-		matcher.domain = Security.split(textDomain.getText(),true);
-		matcher.method = Security.split(textMethod.getText(),true);
-		matcher.port = Security.split(textPort.getText(),true);
+		matcher.url = StringUtil.toStringSet(textURL.getText());
+		matcher.scheme = StringUtil.toStringSet(textProtocol.getText().toLowerCase());
+		matcher.domain = StringUtil.toStringSet(textDomain.getText().toLowerCase());
+		matcher.method = StringUtil.toStringSet(textMethod.getText().toLowerCase());
+		matcher.port = StringUtil.toStringSet(textPort.getText());
 		
 		matcher.resType = textResourceType.getText().trim();
 		matcher.resId = textResourceID.getText();
@@ -664,11 +663,11 @@ public class MatcherDialog extends javax.swing.JDialog {
     }//GEN-LAST:event_buttonCancelActionPerformed
 
     private void buttonAddMatcherActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonAddMatcherActionPerformed
-		KeyValueDialog dialog = new KeyValueDialog(this, true);
-		dialog.nameSet = matcher.redirection.keySet();
+		RedirectionDialog dialog = new RedirectionDialog(this, true);
+		dialog.keySet = matcher.redirection.keySet();
 		dialog.setVisible(true);
-        if (dialog.isOK()) {
-			matcher.redirection.put(dialog.name, dialog.value);
+        if (dialog.isOK) {
+			matcher.redirection.put(dialog.url, dialog.info);
             redirectionModel.fireTableDataChanged();
         }
     }//GEN-LAST:event_buttonAddMatcherActionPerformed
@@ -687,11 +686,13 @@ public class MatcherDialog extends javax.swing.JDialog {
         int rowId = tableRedirections.getSelectedRow();
         if (evt.getClickCount() == 2) {
 			String k = redirectionModel.get(rowId).getKey();
-			String value = matcher.redirection.get(k);			
-            KeyValueDialog dialog = new KeyValueDialog(this, true);
-            dialog.doEdit(k, value, matcher.redirection.keySet());
-            if (dialog.isOK()) {
-				matcher.redirection.put(dialog.name, dialog.value);
+			RedirectionInfo value = matcher.redirection.get(k);			
+            RedirectionDialog dialog = new RedirectionDialog(this, true);
+			dialog.url = k;
+			dialog.info = value;
+			dialog.setVisible(true);
+            if (dialog.isOK) {
+				matcher.redirection.put(dialog.url, dialog.info);
                 redirectionModel.fireTableDataChanged();
                 tableRedirections.setRowSelectionInterval(rowId, rowId);
             }

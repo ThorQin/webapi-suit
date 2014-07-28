@@ -32,15 +32,21 @@ public class RuleMatcher<T> {
 			resultList.add(new SimpleEntry<>(ruleRegExp,info));
 			ruleMap.put(ruleRegExp, resultList.size() - 1);
 		}
+		pattern = null;
 	}
 	public void removeRule(String ruleRegExp) {
 		if (ruleMap.containsKey(ruleRegExp)) {
-			resultList.remove(ruleMap.remove(ruleRegExp));
+			resultList.remove((int)ruleMap.get(ruleRegExp));
+			ruleMap.clear();
+			for (int i = 0; i < resultList.size(); i++)
+				ruleMap.put(resultList.get(i).getKey(), i);
 		}
+		pattern = null;
 	}
 	public void clear() {
 		ruleMap.clear();
 		resultList.clear();
+		pattern = null;
 	}
 	public void build() {
 		String regText = "";
@@ -54,7 +60,13 @@ public class RuleMatcher<T> {
 		pattern = Pattern.compile(regText);
 	}
 	
+	public int size() {
+		return resultList.size();
+	}
+	
 	public T match(String input) {
+		if (pattern == null)
+			build();
 		Matcher matcher = pattern.matcher(input);
 		if (matcher.find()) {
 			for (int i = 0; i < resultList.size(); i++) {

@@ -6,6 +6,7 @@
 package org.thordev.webapi.security;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +30,7 @@ public class SecuritySetting {
 	public static class URLMatcher {
 		public String name;
 		public String description;
-		public String url;
+		public Set<String> url;
 		public Set<String> scheme;
 		public Set<String> domain;
 		public Set<String> method;
@@ -40,17 +41,31 @@ public class SecuritySetting {
 		public String resId;
 		public String operation;
 		public String scenario;
-		// Actions
-		public Map<String, String> redirection = new HashMap<>();
+		// Redirection
+		public static class RedirectionInfo {
+			public Set<String> roles = new HashSet<>();
+			public Set<String> users = new HashSet<>();
+		}
+		public Map<String, RedirectionInfo> redirection = new HashMap<>();
+		//public Map<String, String> redirection = new HashMap<>();
 		
 		// For internal use, created when after call build() method.
-		private Pattern pattern;
-		private Map<String, Integer> parameters;
+		private static class URLInfo {
+			public Map<String, Integer> parameters;
+			public Pattern pattern;
+		}
+		private final RuleMatcher<URLInfo> matcher = new RuleMatcher<>();
 
 		public void build() {
-			parameters = new HashMap<>();
-			String urlRegexp = RuleMatcher.formatUrlRule(url, parameters);
-			pattern = Pattern.compile(urlRegexp);
+			matcher.clear();
+			for (String u: url) {
+				URLInfo info = new URLInfo();
+				info.parameters = new HashMap<>();
+				String formattedUrl = RuleMatcher.formatUrlRule(u, info.parameters);
+				info.pattern = Pattern.compile(formattedUrl);
+				matcher.addRule(resType, info);
+			}
+			matcher.build();
 		}
 
 		public boolean match(String url, String scheme, String domain, String method, int port, HttpSession session, Map<String, String> urlParams) {
@@ -74,17 +89,22 @@ public class SecuritySetting {
 				if (!values.contains(value))
 					return false;
 			}
-			Matcher matcher = pattern.matcher(url);
-			if (!matcher.find()) {
+			URLInfo info = matcher.match(url);
+			if (info == null)
 				return false;
-			}
+			
 			if (urlParams != null) {
 				urlParams.clear();
-				int gCount = matcher.groupCount();
-				for (String k : parameters.keySet()) {
-					int idx = parameters.get(k);
-					if (idx <= gCount) {
-						urlParams.put(k, matcher.group(idx));
+				if (info.parameters.size() > 0) {
+					Matcher m = info.pattern.matcher(url);
+					if (!m.find())
+						return false;
+					int gCount = m.groupCount();
+					for (String k : info.parameters.keySet()) {
+						int idx = info.parameters.get(k);
+						if (idx <= gCount) {
+							urlParams.put(k, m.group(idx));
+						}
 					}
 				}
 			}
@@ -119,10 +139,13 @@ public class SecuritySetting {
 				return false;
 			if (!(this.scenario == null || this.scenario.isEmpty() || this.scenario.contains(scenario)))
 				return false;
-			if (this.user != null && (this.user.contains("*") || this.user.contains(user))) {
-				return true;
-			} else 
-				return this.role != null && (this.role.contains("*") || this.role.contains(role));
+			
+			return this.role.contains("*") || 
+					this.user.contains("*") ||
+					(this.role.contains("?") && role == null) ||
+					(this.user.contains("?") && user == null) ||
+					this.role.contains(role) ||
+					this.user.contains(user);
 		}
 	}
 	public List<Rule> rules = new LinkedList<>();
