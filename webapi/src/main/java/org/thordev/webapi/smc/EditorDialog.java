@@ -1249,12 +1249,14 @@ public class EditorDialog extends javax.swing.JDialog {
         MatcherDialog dialog = new MatcherDialog(this, true);
 		dialog.setMatcherList(config.getSecurity().matchers);
         dialog.setVisible(true);
-        URLMatcher matcher = dialog.getMatcher();
-        if (matcher != null) {
-            config.getSecurity().matchers.add(matcher);
-            matcherModel.fireTableDataChanged();
-            tableMatchers.setRowSelectionInterval(config.getSecurity().matchers.size() - 1, config.getSecurity().matchers.size() - 1);
-        }
+		if (dialog.isOk()) {
+			URLMatcher matcher = dialog.getMatcher();
+			if (matcher != null) {
+				config.getSecurity().matchers.add(matcher);
+				matcherModel.fireTableDataChanged();
+				tableMatchers.setRowSelectionInterval(config.getSecurity().matchers.size() - 1, config.getSecurity().matchers.size() - 1);
+			}
+		}
     }//GEN-LAST:event_buttonAddMatcherActionPerformed
 
     private void buttonDeleteAllowRulesActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonDeleteAllowRulesActionPerformed

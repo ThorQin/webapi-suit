@@ -110,7 +110,7 @@ public class SecuritySetting {
 			if (this.resType == null)
 				return false;
 			if (!this.resType.equals("*")) {
-				if (!(resType.equalsIgnoreCase(this.resType)))
+				if (!(resType == null || resType.equalsIgnoreCase(this.resType)))
 					return false;
 				if (!(this.resId == null || this.resId.isEmpty() || this.resId.contains(resId)))
 					return false;
