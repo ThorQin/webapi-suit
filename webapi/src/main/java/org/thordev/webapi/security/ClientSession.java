@@ -231,11 +231,11 @@ public class ClientSession implements HttpSession {
 	}
 	
 	public void save(String path, String domain) {
-		save(path, domain, null, false, false);
+		save(path, domain, null, true, false);
 	}
 	
 	public void save(String path) {
-		save(path, null, null, false, false);
+		save(path, null, null, true, false);
 	}
 	
 	private static String getRootPath(HttpServletRequest req) {
@@ -247,14 +247,14 @@ public class ClientSession implements HttpSession {
 	}
 	
 	public void save() {
-		save(getRootPath(request), null, null, false, false);
+		save(getRootPath(request), null, null, true, false);
 	}
 	
 	public void delete(String path, String domain) {
-		save(path, domain, 0, false, false);
+		save(path, domain, 0, true, false);
 	}
 	public void delete(String path) {
-		save(path, null, 0, false, false);
+		save(path, null, 0, true, false);
 	}
 	/**
 	 * Remove session cookie from client browser
@@ -262,7 +262,7 @@ public class ClientSession implements HttpSession {
 	 */
 	public void delete() {
 		invalidate();
-		save(getRootPath(request), null, 0, false, false);
+		save(getRootPath(request), null, 0, true, false);
 	}
 
 	public void checkExpired() {

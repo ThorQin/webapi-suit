@@ -25,21 +25,25 @@
 package org.thordev.webapi.security;
 
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.sql.SQLException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.jms.JMSException;
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import org.thordev.webapi.Dispatcher;
 import org.thordev.webapi.amq.AMQ;
 import org.thordev.webapi.database.annotation.DBInterface;
+import org.thordev.webapi.security.Security.MappingInfo.RedirectionURL;
 import static org.thordev.webapi.security.SecuritySetting.RuleAction.allow;
 import static org.thordev.webapi.security.SecuritySetting.RuleAction.deny;
 import org.thordev.webapi.security.SecuritySetting.URLMatcher.RedirectionInfo;
@@ -206,10 +210,18 @@ public final class Security {
 		} else {
 			try {
 				if (info.redirection != null) {
-					String redirectUrl = info.getRedirectionUrl(role, user);
-					if (redirectUrl != null)
-						response.sendRedirect(redirectUrl);
-					else
+					RedirectionURL redirectUrl = info.getRedirectionUrl(role, user);
+					if (redirectUrl != null) {
+						String url = redirectUrl.url;
+						if (redirectUrl.setReference) {
+							if (url.contains("?")) {
+								url += "&ref=" + URLEncoder.encode(path, "utf-8");
+							} else {
+								url += "?ref=" + URLEncoder.encode(path, "utf-8");
+							}
+						}
+						response.sendRedirect(url);
+					} else
 						response.sendError(HttpServletResponse.SC_FORBIDDEN);
 				} else {
 					response.sendError(HttpServletResponse.SC_FORBIDDEN);
@@ -246,7 +258,15 @@ public final class Security {
 		public String resId;
 		public String operation;
 		public String scenario;
-		public String getRedirectionUrl(String role, String user) {
+		public static class RedirectionURL {
+			public RedirectionURL(String u, boolean k) {
+				this.url = u;
+				this.setReference = k;
+			}
+			public String url;
+			public boolean setReference;
+		}
+		public RedirectionURL getRedirectionUrl(String role, String user) {
 			for (Map.Entry<String,RedirectionInfo> r: redirection.entrySet()) {
 				RedirectionInfo info = r.getValue();
 				if (info.roles.contains("*") || 
@@ -255,7 +275,7 @@ public final class Security {
 						(info.users.contains("?") && user == null) ||
 						info.roles.contains(role) || 
 						info.users.contains(user)) {
-					return r.getKey();
+					return new RedirectionURL(r.getKey(), info.setReference);
 				} 
 			}
 			return null;

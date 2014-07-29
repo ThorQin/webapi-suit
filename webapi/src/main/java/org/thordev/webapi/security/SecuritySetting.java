@@ -45,6 +45,7 @@ public class SecuritySetting {
 		public static class RedirectionInfo {
 			public Set<String> roles = new HashSet<>();
 			public Set<String> users = new HashSet<>();
+			public boolean setReference = false;
 		}
 		public Map<String, RedirectionInfo> redirection = new HashMap<>();
 		//public Map<String, String> redirection = new HashMap<>();
