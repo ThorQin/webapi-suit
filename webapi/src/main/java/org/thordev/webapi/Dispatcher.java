@@ -402,6 +402,7 @@ public final class Dispatcher extends HttpServlet {
 			String fullPath = RuleMatcher.formatUrlRule(path + name, paramInfo);
 			if (crossSite || entry.crossSite()) {
 				String key = "^" + HttpMethod.OPTIONS + ":" + fullPath.substring(1);
+				System.out.println("Add Mapping: " + key);
 				MappingInfo info = new MappingInfo();
 				info.instance = this;
 				info.method = this.getClass().getMethod("crossSiteOptions",
@@ -419,6 +420,7 @@ public final class Dispatcher extends HttpServlet {
 			}
 			methodPrefix = "^(" + methodPrefix + ")";
 			String key = methodPrefix + ":" + fullPath.substring(1);
+			System.out.println("Add Mapping: " + key);
 			MappingInfo info = new MappingInfo();
 			info.instance = inst;
 			info.method = method;
