@@ -27,6 +27,8 @@ package org.thordev.webapi.validation;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -35,9 +37,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.Stack;
-
 import javassist.Modifier;
-
 import org.thordev.webapi.validation.annotation.CollectionItemAgent;
 import org.thordev.webapi.validation.annotation.Validate;
 import org.thordev.webapi.validation.annotation.ValidateBoolean;
@@ -140,6 +140,18 @@ public class Validator {
 			@Override
 			public Double convert(Object val) {
 				return (double)(char)val;
+			}
+		});
+		numberClass.put(BigDecimal.class, new DoubleConvert(){
+			@Override
+			public Double convert(Object val) {
+				return ((BigDecimal)val).doubleValue();
+			}
+		});
+		numberClass.put(BigInteger.class, new DoubleConvert(){
+			@Override
+			public Double convert(Object val) {
+				return ((BigInteger)val).doubleValue();
 			}
 		});
 	}
