@@ -733,11 +733,16 @@ public final class Dispatcher extends HttpServlet {
 			logger.log(Level.WARNING, "Bad request: {0}", ex.getMessage());
 			return true;
 		} catch (HttpException ex) {
-			if (ex.getMessage() != null)
-				send(response, ex.getHttpStatus(), ex.getMessage());
-			else
+			if (ex.getMessage() != null) {
+				if (ex.getJsonObject() != null)
+					sendJson(response, ex.getHttpStatus(), ex.getJsonObject());
+				else if (ex.isJsonString())
+					sendJsonString(response, ex.getHttpStatus(), ex.getMessage());
+				else
+					send(response, ex.getHttpStatus(), ex.getMessage());
+			} else
 				send(response, ex.getHttpStatus());
-			logger.log(Level.WARNING, "Custom response: {0}, {1}", new Object[]{ex.getHttpStatus(), ex.getMessage()});
+			logger.log(Level.WARNING, ex.getMessage());
 			return true;
 		} catch (Exception ex) {
 			send(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Server error!");
@@ -815,6 +820,24 @@ public final class Dispatcher extends HttpServlet {
 		response.setDateHeader("Expires", 0);
 		try {
 			response.getOutputStream().print(message);
+		} catch (IOException ex) {
+			logger.log(Level.SEVERE, "Send message to client failed!", ex);
+		}
+	}
+	
+	public static void sendJsonString(HttpServletResponse response, Integer status, String jsonString) {
+		response.setStatus(status);
+		sendJsonString(response, jsonString);
+	}
+	
+	public static void sendJsonString(HttpServletResponse response, String jsonString) {
+		response.setContentType("application/json");
+		response.setCharacterEncoding("utf-8");
+		response.setHeader("Pragma", "no-cache");
+		response.setHeader("Cache-Control", "no-store");
+		response.setDateHeader("Expires", 0);
+		try {
+			response.getOutputStream().print(jsonString);
 		} catch (IOException ex) {
 			logger.log(Level.SEVERE, "Send message to client failed!", ex);
 		}
