@@ -203,7 +203,7 @@ public class Serializer {
 	}
 	public static <T> void saveJsonFile(T obj, String filename, boolean prettyPrint) throws IOException {
 		try (OutputStream stream = new FileOutputStream(filename); 
-				OutputStreamWriter writer = new OutputStreamWriter(stream)) {
+				OutputStreamWriter writer = new OutputStreamWriter(stream, "utf-8")) {
 			if (prettyPrint)
 				gsonPrettyPrinting.toJson(obj, writer);
 			else
