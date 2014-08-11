@@ -1,0 +1,62 @@
+﻿@import 'tui-common.less';
+
+.tui-accordion {
+	@accordionCaptionHeight:36px;
+	@accordinCaptionColor:#000;
+	display:block;
+	position:relative;
+	.border-radius(@panelBorderRadius);
+	border:1px solid @borderColor;
+	border-color:(@borderColor + #050505);
+	overflow:hidden;
+	.tui-accordion-caption {
+		padding:0 10px;
+		color:@accordinCaptionColor;
+		//background-color:@accordinBackgroundColor;
+		.liner-color(@captionColor + #111, @captionColor);
+		height:@accordionCaptionHeight;
+		line-height:@accordionCaptionHeight;
+		font-size:@fontSize;
+		.top-radius(@panelBorderRadius);
+		cursor:pointer;
+		border-bottom:none;
+		overflow:hidden;
+		text-overflow:ellipsis;
+		&.tui-expanded {
+			border-bottom:none;
+			border-bottom:1px solid @borderColor;
+			border-color:@borderColor + #050505;
+		}
+	}
+
+	.tui-list {
+		.border-radius(0px);
+		.bottom-radius(@panelBorderRadius);
+		border:none;
+		.tui-grid-line {
+			cursor:pointer;
+			border-bottom:1px dotted #f0f0f0;
+			.tui-grid-cell .tui-grid-cell-content {
+				color:#808080;
+				cursor:pointer;
+			}
+			&.tui-grid-line-selected {
+				background-color:white;
+				border-bottom:1px dotted #f0f0f0;
+				.tui-grid-cell .tui-grid-cell-content {
+					color:@linkForeColor;
+				}
+			}
+			&:hover {
+				background-color:#f0f0f0;
+			}
+			&.tui-accordion-row-checked {
+				background-color:#f0f0f0;
+				.tui-grid-cell .tui-grid-cell-content {
+					color:@linkForeColor;
+					font-weight:bold;
+				}
+			}
+		}
+	}
+}

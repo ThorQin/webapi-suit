@@ -1,0 +1,233 @@
+﻿@import 'tui-common.less';
+@import 'tui-animation.less';
+
+hr {
+	height:0;
+	border:none;
+	border-bottom:1px dashed @borderColor;
+	margin:20px 0px;
+}
+
+body {
+    .font;
+}
+
+a {
+	color:@linkForeColor;
+	text-decoration:none;
+	&:visited {
+		color:@linkVisitedForeColor;
+	}
+	&:hover {
+		color:@linkHoverForeColor;
+	}
+}
+
+@import 'tui-button.less';
+@import 'tui-checkbox.less';
+@import 'tui-tab.less';
+@import 'tui-calendar.less';
+@import 'tui-popup.less';
+@import 'tui-dialog.less';
+@import 'tui-input.less';
+@import 'tui-textarea.less';
+@import 'tui-scrollbar.less';
+@import 'tui-table-grid.less';
+@import 'tui-list.less';
+@import 'tui-tab.less';
+@import 'tui-tips.less';
+@import 'tui-accordion.less';
+@import 'tui-accordion-group.less';
+@import 'tui-menu.less';
+@import 'tui-navbar.less';
+
+
+.tui-blur {
+	filter: url(blur.svg#blur); /* FireFox, Chrome, Opera */
+	-webkit-filter: blur(10px); /* Chrome, Opera */
+	-moz-filter: blur(10px);
+	-ms-filter: blur(10px);
+	filter: blur(10px);
+	/* IE6~IE9 */
+	filter: progid:DXImageTransform.Microsoft.Blur(PixelRadius=10, MakeShadow=false);
+}
+
+
+/* Background image scale.*/
+.tui-bg-scale {
+	filter:"progid:DXImageTransform.Microsoft.AlphaImageLoader(sizingMethod='scale')";
+	-moz-background-size:100% 100%;
+	background-size:100% 100%;
+}
+
+.tui-panel {
+	.border-radius(@panelBorderRadius);
+	border:1px solid @borderColor;
+	padding:0px;
+	overflow:hidden;
+	&[data-title] {
+		&:before {
+			top:0;
+			display:block;
+			.top-radius(@panelBorderRadius);
+			background-color:@captionColor;
+			border-bottom:1px solid @borderColor;
+			padding:10px;
+			content:attr(data-title);
+		}
+	}
+	.tui-panel-foot {
+		display:block;
+		background-color:@captionColor;
+		.bottom-radius(@panelBorderRadius);
+		padding:10px;
+		border-top:1px solid @borderColor;
+	}
+	.tui-panel-head {
+		display:block;
+		background-color:@captionColor;
+		.top-radius(@panelBorderRadius);
+		padding:10px;
+		border-bottom:1px solid @borderColor;
+	}
+}
+
+.tui-tooltip {
+	&:before {
+		display:inline-block;
+		position:absolute;
+		content:" ";
+		width:0;
+		height:0;
+		left:10px;
+		top:-14px;
+		border:8px solid transparent;
+		border-bottom-color:@tooltipBackgroundColor;
+	}
+	padding:4px 8px;
+	color: @tooltipForeColor;
+	position:fixed;
+	max-width:300px;
+	z-index:@tooltipLayer;
+	background-color:@tooltipBackgroundColor;
+	.border-radius(4px);
+	.shadow(1px, 2px, 5px, rgba(0,0,0,0.2));
+}
+
+.tui-title {
+	.font;
+	padding:@buttonPaddingTopBottom @buttonPaddingLeftRight;
+	text-align:center;
+	vertical-align:middle;
+	text-decoration:none;
+	display:inline-block;
+}
+
+.tui-label {
+	.btn;
+	margin:2px;
+	color: #000;
+	background-color:@captionColor;
+	border: 1px solid @borderColor;
+	.border-radius(@buttonBorderRadius);
+}
+
+.tui-btn-group,.tui-input-group,.tui-paginator {
+	margin-left:2px;
+	margin-right:2px;
+	white-space:nowrap;
+	
+	> *, > *.tui-focus, > *:focus {
+		vertical-align:middle;
+		display:inline-block;
+		float:left;
+		margin-left:0;
+		margin-right:0;
+		border-left-width:0;
+		.border-radius(0px);
+		&.tui-button {
+			min-width:0px;
+		}
+	}
+	> *:first-child, > *.tui-focus:first-child, > *:first-child:focus {
+		.left-radius(@buttonBorderRadius);
+		border-left-width:1px;
+	}
+	> *:last-child {
+		.right-radius(@buttonBorderRadius);
+	}
+	&:after {
+		display:block;
+		content:"";
+		clear:left;
+	}
+}
+
+.tui-input-group {
+	> * {
+		height:@inputHeight;
+		line-height:@inputHeight;
+		
+	}
+	> .tui-button, > .tui-label {
+		padding-top:0px;
+		padding-bottom:0px;
+	}
+}
+
+.tui-inline {
+	display:inline-block;
+	vertical-align:middle;
+}
+
+.tui-shadow-tiny {
+	.shadow(0, 0, 2px, #ccc);
+}
+
+.tui-shadow-dark-tiny {
+	.shadow(0, 0, 2px, #555);
+}
+
+.tui-shadow-small {
+	.shadow(0, 0, 5px, #ccc);
+}
+
+.tui-shadow-dark-small {
+	.shadow(0, 0, 5px, #555);
+}
+
+.tui-shadow {
+	.shadow(0, 0, 10px, #ccc);
+}
+
+.tui-shadow-dark {
+	.shadow(0, 0, 10px, #555);
+}
+
+.tui-shadow-big {
+	.shadow(0, 0, 16px, #ccc);
+}
+
+.tui-shadow-dark-big {
+	.shadow(0, 0, 16px, rgba(0,0,0,.6));
+}
+
+[unselectable=on] {
+	-moz-user-select:none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+*[data-hidden=true], .tui-hidden, .tui-form, .tui-form-agent {
+	display:none;
+}
+
+.tui-invisible,.tui-size-test {
+	visibility:hidden;
+}
+
+.tui-size-test {
+	position:fixed;
+	z-index:-1;
+}

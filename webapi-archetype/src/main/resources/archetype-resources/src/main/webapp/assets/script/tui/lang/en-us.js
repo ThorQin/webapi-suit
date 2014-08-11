@@ -9,8 +9,14 @@
         "abort": "Operating has been aborted!",
         "parsererror": "Server response invalid content!"
     };
-    tui.registerTranslator("en-us", function (str) {
-        return dict[str] || str;
-    });
+
+    // Register this dictionary.
+    tui.registerTranslator("en-us", dict);
+    // Or you can register a custom translate function like this:
+    // tui.registerTranslator("en-us", function(str) {
+    //		if (str === 'xxx' && hasOtherConditions)
+    //			return 'the string what you wish to displayed';
+    //		else
+    //			......
+    // });
 })();
-//# sourceMappingURL=en-us.js.map

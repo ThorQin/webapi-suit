@@ -1,4 +1,175 @@
 ﻿/// <reference path="jquery.d.ts" />
+// Embedded JSON2
+var JSON;
+if (!JSON) {
+    JSON = {};
+}
+(function () {
+    "use strict";
+
+    function f(n) {
+        return n < 10 ? '0' + n : n;
+    }
+
+    if (typeof Date.prototype.toJSON !== 'function') {
+        Date.prototype.toJSON = function (key) {
+            return isFinite(this.valueOf()) ? this.getUTCFullYear() + '-' + f(this.getUTCMonth() + 1) + '-' + f(this.getUTCDate()) + 'T' + f(this.getUTCHours()) + ':' + f(this.getUTCMinutes()) + ':' + f(this.getUTCSeconds()) + 'Z' : null;
+        };
+
+        String.prototype.toJSON = Number.prototype.toJSON = Boolean.prototype.toJSON = function (key) {
+            return this.valueOf();
+        };
+    }
+
+    var cx = /[\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g, escapable = /[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g, gap, indent, meta = {
+        '\b': '\\b',
+        '\t': '\\t',
+        '\n': '\\n',
+        '\f': '\\f',
+        '\r': '\\r',
+        '"': '\\"',
+        '\\': '\\\\'
+    }, rep;
+
+    function quote(string) {
+        escapable.lastIndex = 0;
+        return escapable.test(string) ? '"' + string.replace(escapable, function (a) {
+            var c = meta[a];
+            return typeof c === 'string' ? c : '\\u' + ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
+        }) + '"' : '"' + string + '"';
+    }
+
+    function str(key, holder) {
+        var i, k, v, length, mind = gap, partial, value = holder[key];
+        if (value && typeof value === 'object' && typeof value.toJSON === 'function') {
+            value = value.toJSON(key);
+        }
+
+        if (typeof rep === 'function') {
+            value = rep.call(holder, key, value);
+        }
+
+        switch (typeof value) {
+            case 'string':
+                return quote(value);
+
+            case 'number':
+                return isFinite(value) ? String(value) : 'null';
+
+            case 'boolean':
+            case 'null':
+                return String(value);
+
+            case 'object':
+                if (!value) {
+                    return 'null';
+                }
+
+                gap += indent;
+                partial = [];
+
+                if (Object.prototype.toString.apply(value) === '[object Array]') {
+                    length = value.length;
+                    for (i = 0; i < length; i += 1) {
+                        partial[i] = str(i, value) || 'null';
+                    }
+
+                    v = partial.length === 0 ? '[]' : gap ? '[\n' + gap + partial.join(',\n' + gap) + '\n' + mind + ']' : '[' + partial.join(',') + ']';
+                    gap = mind;
+                    return v;
+                }
+
+                if (rep && typeof rep === 'object') {
+                    length = rep.length;
+                    for (i = 0; i < length; i += 1) {
+                        if (typeof rep[i] === 'string') {
+                            k = rep[i];
+                            v = str(k, value);
+                            if (v) {
+                                partial.push(quote(k) + (gap ? ': ' : ':') + v);
+                            }
+                        }
+                    }
+                } else {
+                    for (k in value) {
+                        if (Object.prototype.hasOwnProperty.call(value, k)) {
+                            v = str(k, value);
+                            if (v) {
+                                partial.push(quote(k) + (gap ? ': ' : ':') + v);
+                            }
+                        }
+                    }
+                }
+
+                v = partial.length === 0 ? '{}' : gap ? '{\n' + gap + partial.join(',\n' + gap) + '\n' + mind + '}' : '{' + partial.join(',') + '}';
+                gap = mind;
+                return v;
+        }
+    }
+
+    if (typeof JSON.stringify !== 'function') {
+        JSON.stringify = function (value, replacer, space) {
+            var i;
+            gap = '';
+            indent = '';
+
+            if (typeof space === 'number') {
+                for (i = 0; i < space; i += 1) {
+                    indent += ' ';
+                }
+            } else if (typeof space === 'string') {
+                indent = space;
+            }
+
+            rep = replacer;
+            if (replacer && typeof replacer !== 'function' && (typeof replacer !== 'object' || typeof replacer.length !== 'number')) {
+                throw new Error('JSON.stringify');
+            }
+
+            return str('', { '': value });
+        };
+    }
+
+    if (typeof JSON.parse !== 'function') {
+        JSON.parse = function (text, reviver) {
+            var j;
+
+            function walk(holder, key) {
+                var k, v, value = holder[key];
+                if (value && typeof value === 'object') {
+                    for (k in value) {
+                        if (Object.prototype.hasOwnProperty.call(value, k)) {
+                            v = walk(value, k);
+                            if (v !== undefined) {
+                                value[k] = v;
+                            } else {
+                                delete value[k];
+                            }
+                        }
+                    }
+                }
+                return reviver.call(holder, key, value);
+            }
+
+            text = String(text);
+            cx.lastIndex = 0;
+            if (cx.test(text)) {
+                text = text.replace(cx, function (a) {
+                    return '\\u' + ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
+                });
+            }
+
+            if (/^[\],:{}\s]*$/.test(text.replace(/\\(?:["\\\/bfnrt]|u[0-9a-fA-F]{4})/g, '@').replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, ']').replace(/(?:^|:|,)(?:\s*\[)+/g, ''))) {
+                j = eval('(' + text + ')');
+
+                return typeof reviver === 'function' ? walk({ '': j }, '') : j;
+            }
+            throw new SyntaxError('JSON.parse');
+        };
+    }
+}());
+
+// End of JSON2
 if (typeof Array.prototype.indexOf !== "function") {
     Array.prototype.indexOf = function (searchElement, fromIndex) {
         var from = (typeof fromIndex === "number" ? fromIndex : 0);
@@ -12,6 +183,15 @@ if (typeof Array.prototype.indexOf !== "function") {
 
 var tui;
 (function (tui) {
+    tui.KEY_TAB = 9;
+    tui.KEY_ENTER = 13;
+    tui.KEY_ESC = 27;
+    tui.KEY_SPACE = 32;
+    tui.KEY_LEFT = 37;
+    tui.KEY_UP = 38;
+    tui.KEY_RIGHT = 39;
+    tui.KEY_DOWN = 40;
+
     tui.undef = (function (undefined) {
         return typeof undefined;
     })();
@@ -26,11 +206,16 @@ var tui;
 
     var _translate = {};
 
-    /**
-    * Register a translation engine.
-    */
-    function registerTranslator(lang, func) {
-        _translate[lang] = func;
+    
+
+    function registerTranslator(lang, translator) {
+        if (typeof translator === "function")
+            _translate[lang] = translator;
+        else if (typeof translator === "object" && translator !== null) {
+            _translate[lang] = function (str) {
+                return translator[str] || str;
+            };
+        }
     }
     tui.registerTranslator = registerTranslator;
 
@@ -222,13 +407,6 @@ var tui;
     }
     tui.toElement = toElement;
 
-    function toNewElement(html) {
-        var div = document.createElement('div');
-        div.innerHTML = html;
-        return div;
-    }
-    tui.toNewElement = toNewElement;
-
     function removeNode(node) {
         node.parentNode && node.parentNode.removeChild(node);
     }
@@ -263,6 +441,26 @@ var tui;
             return null;
     }
     tui.elementText = elementText;
+
+    function relativePosition(srcObj, offsetParent) {
+        if (!offsetParent.nodeName && !offsetParent.tagName)
+            throw new Error("Offset parent must be an html element.");
+        var result = { x: srcObj.offsetLeft, y: srcObj.offsetTop };
+        var obj = srcObj.offsetParent;
+        while (obj) {
+            if (obj === offsetParent)
+                return result;
+            result.x += ((obj.offsetLeft || 0) + (obj.clientLeft || 0) - (obj.scrollLeft || 0));
+            result.y += ((obj.offsetTop || 0) + (obj.clientTop || 0) - (obj.scrollTop || 0));
+            if (obj.nodeName.toLowerCase() === "body" && obj.offsetParent === null)
+                obj = obj.parentElement;
+            else
+                obj = obj.offsetParent;
+        }
+        return null;
+    }
+    tui.relativePosition = relativePosition;
+    ;
 
     function fixedPosition(target) {
         var $target = $(target);
@@ -330,7 +528,7 @@ var tui;
     * Get element's owner window
     */
     function getWindow(elem) {
-        return elem.ownerDocument.defaultView || elem.ownerDocument.parentWindow || elem.ownerDocument.Script;
+        return elem.ownerDocument.defaultView || elem.ownerDocument.parentWindow;
     }
     tui.getWindow = getWindow;
 
@@ -471,6 +669,18 @@ var tui;
         return results === null ? null : decodeURIComponent(results[1].replace(/\+/g, " "));
     }
     tui.getParam = getParam;
+
+    /**
+    * Get the anchor of the URL query string.
+    * @param {String} url
+    */
+    function getAnchor(url) {
+        var anchor = location.href.match("(#.+)(?:\\?.*)?");
+        if (anchor)
+            anchor = anchor[1];
+        return anchor;
+    }
+    tui.getAnchor = getAnchor;
 
     var BackupedScrollPosition = (function () {
         function BackupedScrollPosition(target) {
@@ -670,6 +880,178 @@ var tui;
         }
     }
     tui.deleteData = deleteData;
+
+    function windowScrollElement() {
+        if (tui.ieVer > 0 || tui.ffVer > 0) {
+            return window.document.documentElement;
+        } else {
+            return window.document.body;
+        }
+    }
+    tui.windowScrollElement = windowScrollElement;
+
+    /**
+    * Load URL via AJAX request, It's a simplified version of jQuery.ajax method.
+    *
+    */
+    function loadURL(url, completeCallback, async, method, data) {
+        if (typeof async === "undefined") { async = true; }
+        method = method ? method : "GET";
+        $.ajax({
+            "type": method,
+            "url": url,
+            "async": async,
+            "contentType": "application/json",
+            "data": (method === "GET" ? data : JSON.stringify(data)),
+            "complete": function (jqXHR, status) {
+                if (typeof completeCallback === "function" && completeCallback(status, jqXHR) === false) {
+                    return;
+                }
+            },
+            "processData": (method === "GET" ? true : false)
+        });
+    }
+    tui.loadURL = loadURL;
+
+    var _accMap = {};
+    var _keyMap = {
+        8: "Back",
+        9: "Tab",
+        13: "Enter",
+        19: "Pause",
+        20: "Caps",
+        27: "Escape",
+        32: "Space",
+        33: "Prior",
+        34: "Next",
+        35: "End",
+        36: "Home",
+        37: "Left",
+        38: "Up",
+        39: "Right",
+        40: "Down",
+        45: "Insert",
+        46: "Delete",
+        48: "0",
+        49: "1",
+        50: "2",
+        51: "3",
+        52: "4",
+        53: "5",
+        54: "6",
+        55: "7",
+        56: "8",
+        57: "9",
+        65: "A",
+        66: "B",
+        67: "C",
+        68: "D",
+        69: "E",
+        70: "F",
+        71: "G",
+        72: "H",
+        73: "I",
+        74: "J",
+        75: "K",
+        76: "L",
+        77: "M",
+        78: "N",
+        79: "O",
+        80: "P",
+        81: "Q",
+        82: "R",
+        83: "S",
+        84: "T",
+        85: "U",
+        86: "V",
+        87: "W",
+        88: "X",
+        89: "Y",
+        90: "Z",
+        112: "F1",
+        113: "F2",
+        114: "F3",
+        115: "F4",
+        116: "F5",
+        117: "F6",
+        118: "F7",
+        119: "F8",
+        120: "F9",
+        121: "F10",
+        122: "F11",
+        123: "F12",
+        186: ";",
+        187: "=",
+        188: ",",
+        189: "-",
+        190: ".",
+        191: "/",
+        192: "~",
+        219: "[",
+        220: "\\",
+        221: "]",
+        222: "'"
+    };
+    function accelerate(e) {
+        var k = _keyMap[e.keyCode];
+        if (!k) {
+            return;
+        }
+        k = k.toUpperCase();
+        var key = (e.ctrlKey ? "CTRL" : "");
+        if (e.altKey) {
+            if (key.length > 0)
+                key += "+";
+            key += "ALT";
+        }
+        if (e.shiftKey) {
+            if (key.length > 0)
+                key += "+";
+            key += "SHIFT";
+        }
+        if (e.metaKey) {
+            if (key.length > 0)
+                key += "+";
+            key += "META";
+        }
+        if (key.length > 0)
+            key += "+";
+        key += k;
+        var l = _accMap[key];
+        if (l) {
+            for (var i = 0; i < l.length; i++) {
+                if (tui.fire(l[i], { name: l[i] }) === false)
+                    return;
+            }
+        }
+    }
+    function addAccelerate(key, actionId) {
+        key = key.toUpperCase();
+        var l = null;
+        if (_accMap.hasOwnProperty(key))
+            l = _accMap[key];
+        else {
+            l = [];
+            _accMap[key] = {};
+        }
+        if (l.indexOf(actionId) < 0)
+            l.push(actionId);
+    }
+    tui.addAccelerate = addAccelerate;
+    function deleteAccelerate(key, actionId) {
+        key = key.toUpperCase();
+        if (!_accMap.hasOwnProperty(key))
+            return;
+        var l = _accMap[key];
+        var pos = l.indexOf(actionId);
+        if (pos >= 0) {
+            l.splice(pos, 1);
+            if (l.length <= 0)
+                delete _accMap[key];
+        }
+    }
+    tui.deleteAccelerate = deleteAccelerate;
+    $(document).keydown(accelerate);
 })(tui || (tui = {}));
 /// <reference path="tui.core.ts" />
 var tui;
@@ -815,71 +1197,265 @@ var tui;
     }
     tui.totalDaysOfMonth = totalDaysOfMonth;
 
-    /**
-    * Parse string get date instance (format: yyyy-MM-dd hh:mm:ss or ISO8601 format)
-    * @param {String} dtStr Data string
-    */
-    function parseDate(dtStr) {
-        var now = new Date();
-        var year = now.getFullYear();
-        var month = now.getMonth();
-        var day = now.getDate();
-        var hour = 0;
-        var minute = 0;
-        var second = 0;
-        var millisecond = 0;
-        var tz = new Date().getTimezoneOffset();
-        var pyear = "(\\d{4})";
-        var pmonth = "(1[0-2]|0?[1-9])";
-        var pday = "(0?[1-9]|[12][0-9]|3[01])";
-        var phour = "(0?[0-9]|1[0-9]|2[0-3])";
-        var pminute = "([0-5]?[0-9])";
-        var psecond = "([0-5]?[0-9])";
-        var pmillisecond = "([0-9]+)";
-        var ptz = "((?:\\+|-)(?:1[0-2]|0[0-9])(?:[0-5][0-9])?)";
+    function parseDateInternal(dtStr, format) {
+        if (!dtStr || !format)
+            return null;
+        var mapping = {};
+        var gcount = 0;
         var isUTC = false;
 
-        var regex = "^" + pyear + "-" + pmonth + "-" + pday + "(?:\\s+" + phour + "(?::" + pminute + "(?::" + psecond + ")?)?)?$";
-        var matches = new RegExp(regex, "g").exec(dtStr);
-        if (matches === null) {
-            regex = "^" + pyear + "-" + pmonth + "-" + pday + "(?:T" + phour + ":" + pminute + ":" + psecond + "(?:\\." + pmillisecond + ")?Z)?$";
-            matches = new RegExp(regex, "g").exec(dtStr);
-            if (matches)
+        var values = {};
+        function matchEnum(v, key, enumArray) {
+            var m = dtStr.match(new RegExp("^" + enumArray.join("|"), "i"));
+            if (m === null)
+                return false;
+            v = m[0].toLowerCase();
+            v = v.substr(0, 1).toUpperCase() + v.substr(1);
+            values[key] = enumArray.indexOf(v);
+            dtStr = dtStr.substr(v.length);
+            return true;
+        }
+        function matchNumber(v, key, min, max) {
+            var len = v.length;
+            var m = dtStr.match("^[0-9]{1," + len + "}");
+            if (m === null)
+                return false;
+            v = m[0];
+            var num = parseInt(v);
+            if (num < min || num > max)
+                return false;
+            key && (values[key] = num);
+            dtStr = dtStr.substr(v.length);
+            return true;
+        }
+        var rule = {
+            "y+": function (v) {
+                if (!matchNumber(v, "year"))
+                    return false;
+                if (values["year"] < 100)
+                    values["year"] += 1900;
+                return true;
+            },
+            "M+": function (v) {
+                var len = v.length;
+                if (len < 3) {
+                    if (!matchNumber(v, "month", 1, 12))
+                        return false;
+                    values["month"] -= 1;
+                    return true;
+                } else if (len === 3) {
+                    return matchEnum(v, "month", shortMonths);
+                } else {
+                    return matchEnum(v, "month", months);
+                }
+            },
+            "d+": function (v) {
+                return matchNumber(v, "date", 1, 31);
+            },
+            "D+": matchNumber,
+            "h+": function (v) {
+                return matchNumber(v, "12hour", 1, 12);
+            },
+            "H+": function (v) {
+                return matchNumber(v, "hour", 0, 24);
+            },
+            "m+": function (v) {
+                return matchNumber(v, "minute", 0, 59);
+            },
+            "s+": function (v) {
+                return matchNumber(v, "second", 0, 59);
+            },
+            "[qQ]+": function (v) {
+                return matchNumber(v, null, 1, 4);
+            },
+            "S+": function (v) {
+                return matchNumber(v, "millisecond", 0, 999);
+            },
+            "E+": function (v) {
+                var len = v.length;
+                if (len < 3) {
+                    if (!matchNumber(v, null, 0, 6))
+                        return false;
+                    return true;
+                } else if (len === 3) {
+                    return matchEnum(v, null, shortWeeks);
+                } else {
+                    return matchEnum(v, null, weeks);
+                }
+            },
+            "a|A": function matchNumber(v) {
+                var len = v.length;
+                var m = dtStr.match(/^(am|pm)/i);
+                if (m === null)
+                    return false;
+                v = m[0];
+                values["ampm"] = v.toLowerCase();
+                dtStr = dtStr.substr(v.length);
+                return true;
+            },
+            "z+": function (v) {
+                var len = v.length;
+                var m;
+                if (len <= 2)
+                    m = dtStr.match(/^([\-+][0-9]{2})/i);
+                else if (len === 3)
+                    m = dtStr.match(/^([\-+][0-9]{2})([0-9]{2})/i);
+                else
+                    m = dtStr.match(/^([\-+][0-9]{2}):([0-9]{2})/i);
+                if (m === null)
+                    return false;
+                v = m[0];
+                var tz = parseInt(m[1]);
+                if (Math.abs(tz) < -11 || Math.abs(tz) > 11)
+                    return false;
+                tz *= 60;
+                if (typeof m[2] !== tui.undef) {
+                    if (tz > 0)
+                        tz += parseInt(m[2]);
+                    else
+                        tz -= parseInt(m[2]);
+                }
+                values["tz"] = -tz;
+                dtStr = dtStr.substr(v.length);
+                return true;
+            },
+            "Z": function (v) {
+                if (dtStr.substr(0, 1) !== "Z")
+                    return false;
                 isUTC = true;
-        }
-        if (matches === null) {
-            regex = "^" + pyear + "-" + pmonth + "-" + pday + "(?:T" + phour + ":" + pminute + ":" + psecond + "(?:\\." + pmillisecond + ")?(?:" + ptz + ")?)?$";
-            matches = new RegExp(regex, "g").exec(dtStr);
-        }
-        if (matches instanceof Array) {
-            if (typeof matches[1] === "string" && matches[1].length > 0)
-                year = parseInt(matches[1], 10);
-            if (typeof matches[2] === "string" && matches[2].length > 0)
-                month = parseInt(matches[2], 10) - 1;
-            if (typeof matches[3] === "string" && matches[3].length > 0)
-                day = parseInt(matches[3], 10);
-            if (typeof matches[4] === "string" && matches[4].length > 0)
-                hour = parseInt(matches[4], 10);
-            if (typeof matches[5] === "string" && matches[5].length > 0)
-                minute = parseInt(matches[5], 10);
-            if (typeof matches[6] === "string" && matches[6].length > 0)
-                second = parseInt(matches[6], 10);
-            if (typeof matches[7] === "string" && matches[7].length > 0)
-                millisecond = parseInt(matches[7], 10);
-            if (typeof matches[8] === "string" && matches[8].length > 0) {
-                tz = parseInt(matches[8].substr(1, 2), 10) * 60;
-                if (matches[8].length >= 5)
-                    tz += parseInt(matches[8].substr(3, 2), 10);
-                if (matches[8].substr(0, 1) === "+")
-                    tz = -tz;
+                dtStr = dtStr.substr(1);
+                return true;
+            },
+            "\"[^\"]*\"|'[^']*'": function (v) {
+                v = v.substr(1, v.length - 2);
+                if (dtStr.substr(0, v.length).toLowerCase() !== v.toLowerCase())
+                    return false;
+                dtStr = dtStr.substr(v.length);
+                return true;
+            },
+            "[^yMmdDhHsSqEaAzZ'\"]+": function (v) {
+                v = v.replace(/(.)/g, '\\$1');
+                var m = dtStr.match(new RegExp("^" + v));
+                if (m === null)
+                    return false;
+                v = m[0];
+                dtStr = dtStr.substr(v.length);
+                return true;
             }
-            if (isUTC)
-                return new Date(Date.UTC(year, month, day, hour, minute, second, millisecond));
-            else {
-                return new Date(Date.UTC(year, month, day, hour, minute, second, millisecond) + tz * 60 * 1000);
+        };
+        var regex = "";
+        for (var k in rule) {
+            if (!rule.hasOwnProperty(k))
+                continue;
+            if (regex.length > 0)
+                regex += "|";
+            regex += "(^" + k + ")";
+            mapping[k] = ++gcount;
+        }
+
+        var result;
+        while ((result = format.match(regex)) !== null) {
+            for (var k in mapping) {
+                var v = result[mapping[k]];
+                if (typeof v !== tui.undef) {
+                    if (rule[k](v) === false)
+                        return null;
+                    break;
+                }
+            }
+            format = format.substr(result[0].length);
+        }
+        if (format.length > 0 || dtStr.length > 0)
+            return null;
+        var parseCount = 0;
+        for (var k in values) {
+            if (!values.hasOwnProperty(k))
+                continue;
+            parseCount++;
+        }
+        if (parseCount <= 0)
+            return null;
+        var now = new Date();
+        var year = values.hasOwnProperty("year") ? values["year"] : (isUTC ? now.getUTCFullYear() : now.getFullYear());
+        var month = values.hasOwnProperty("month") ? values["month"] : (isUTC ? now.getUTCMonth() : now.getMonth());
+        var date = values.hasOwnProperty("date") ? values["date"] : (isUTC ? now.getUTCDate() : now.getDate());
+        var ampm = values.hasOwnProperty("ampm") ? values["ampm"] : "am";
+        var hour;
+        if (values.hasOwnProperty("hour"))
+            hour = values["hour"];
+        else if (values.hasOwnProperty("12hour")) {
+            var h12 = values["12hour"];
+            if (ampm === "am") {
+                if (h12 >= 1 && h12 <= 11) {
+                    hour = h12;
+                } else if (h12 === 12) {
+                    hour = h12 - 12;
+                } else
+                    return null;
+            } else {
+                if (h12 === 12)
+                    hour = h12;
+                else if (h12 >= 1 && h12 <= 11)
+                    hour = h12 + 12;
+                else
+                    return null;
             }
         } else
-            return null;
+            hour = 0;
+        var minute = values.hasOwnProperty("minute") ? values["minute"] : 0;
+        var second = values.hasOwnProperty("second") ? values["second"] : 0;
+        var millisecond = values.hasOwnProperty("millisecond") ? values["millisecond"] : 0;
+        var tz = values.hasOwnProperty("tz") ? values["tz"] : now.getTimezoneOffset();
+        now.setUTCFullYear(year);
+        now.setUTCMonth(month);
+        now.setUTCDate(date);
+        now.setUTCHours(hour);
+        now.setUTCMinutes(minute);
+        now.setUTCSeconds(second);
+        now.setUTCMilliseconds(millisecond);
+        if (!isUTC) {
+            now.setTime(now.getTime() + tz * 60 * 1000);
+        }
+        return now;
+    }
+
+    /**
+    * Parse string get date instance (
+    * try to parse format:
+    *		yyyy-MM-dd HH:mm:ss，
+    *		yyyy-MM-dd,
+    *		dd MMM yyyy,
+    *		MMM dd, yyyy,
+    *		ISO8601 format)
+    * @param {String} dtStr Data string
+    */
+    function parseDate(dtStr, format) {
+        if (typeof format === "string")
+            return parseDateInternal(dtStr, format);
+        else if (typeof format === tui.undef) {
+            var dt = new Date(dtStr);
+            if (!isNaN(dt.getTime()))
+                return dt;
+            dt = parseDateInternal(dtStr, "yyyy-MM-dd");
+            if (dt !== null)
+                return dt;
+            dt = parseDateInternal(dtStr, "yyyy-MM-dd HH:mm:ss");
+            if (dt !== null)
+                return dt;
+            dt = parseDateInternal(dtStr, "MMM dd, yyyy HH:mm:ss");
+            if (dt !== null)
+                return dt;
+            dt = parseDateInternal(dtStr, "MMM dd, yyyy");
+            if (dt !== null)
+                return dt;
+            dt = parseDateInternal(dtStr, "dd MMM yyyy HH:mm:ss");
+            if (dt !== null)
+                return dt;
+            dt = parseDateInternal(dtStr, "dd MMM yyyy");
+            if (dt !== null)
+                return dt;
+        }
+        return null;
     }
     tui.parseDate = parseDate;
 
@@ -890,11 +1466,21 @@ var tui;
     */
     function formatDate(dt, dateFmt) {
         if (typeof dateFmt === "undefined") { dateFmt = "yyyy-MM-ddTHH:mm:sszzz"; }
+        var isUTC = (dateFmt.indexOf("Z") >= 0 ? true : false);
+        var fullYear = isUTC ? dt.getUTCFullYear() : dt.getFullYear();
+        var month = isUTC ? dt.getUTCMonth() : dt.getMonth();
+        var date = isUTC ? dt.getUTCDate() : dt.getDate();
+        var hours = isUTC ? dt.getUTCHours() : dt.getHours();
+        var minutes = isUTC ? dt.getUTCMinutes() : dt.getMinutes();
+        var seconds = isUTC ? dt.getUTCSeconds() : dt.getSeconds();
+        var milliseconds = isUTC ? dt.getUTCMilliseconds() : dt.getMilliseconds();
+        var day = isUTC ? dt.getUTCDay() : dt.getDay();
+
         var rule = {
-            "y+": dt.getFullYear(),
-            "M+": dt.getMonth() + 1,
-            "d+": dt.getDate(),
-            "D+": dayOfYear(dt),
+            "y+": fullYear,
+            "M+": month + 1,
+            "d+": date,
+            "D+": dayOfYear(dt) + 1,
             "h+": (function (h) {
                 if (h === 0)
                     return h + 12;
@@ -902,29 +1488,31 @@ var tui;
                     return h;
                 else if (h >= 13 && h <= 23)
                     return h - 12;
-            })(dt.getHours()),
-            "H+": dt.getHours(),
-            "m+": dt.getMinutes(),
-            "s+": dt.getSeconds(),
-            "q+": Math.floor((dt.getMonth() + 3) / 3),
-            "S+": dt.getMilliseconds(),
-            "E+": dt.getDay(),
+            })(hours),
+            "H+": hours,
+            "m+": minutes,
+            "s+": seconds,
+            "q+": Math.floor((month + 3) / 3),
+            "S+": milliseconds,
+            "E+": day,
             "a": (function (h) {
                 if (h >= 0 && h <= 11)
                     return "am";
                 else
                     return "pm";
-            })(dt.getHours()),
+            })(isUTC ? dt.getUTCHours() : dt.getHours()),
             "A": (function (h) {
                 if (h >= 0 && h <= 11)
                     return "AM";
                 else
                     return "PM";
-            })(dt.getHours()),
+            })(hours),
             "z+": dt.getTimezoneOffset()
         };
         var regex = "";
         for (var k in rule) {
+            if (!rule.hasOwnProperty(k))
+                continue;
             if (regex.length > 0)
                 regex += "|";
             regex += k;
@@ -1449,6 +2037,8 @@ var tui;
             this._data = null;
             this._head = null;
             this._headCache = {};
+            this._mapping = {};
+            this._realKeyMap = null;
             if (data && data instanceof Array) {
                 this._src = this._data = data;
             } else if (data && data.data) {
@@ -1472,15 +2062,59 @@ var tui;
             else
                 return null;
         };
+        ArrayProvider.prototype.cell = function (index, key) {
+            var row = this.at(index);
+            if (!row)
+                return null;
+            var map = this.columnKeyMap();
+            var realKey = map[key];
+            if (realKey != null) {
+                return row[realKey];
+            } else {
+                return row[key];
+            }
+        };
         ArrayProvider.prototype.columnKeyMap = function () {
+            if (this._realKeyMap !== null)
+                return this._realKeyMap;
             if (this._head) {
                 var map = {};
                 for (var i = 0; i < this._head.length; i++) {
                     map[this._head[i]] = i;
                 }
+                for (var k in this._mapping) {
+                    if (!this._mapping.hasOwnProperty(k))
+                        continue;
+                    var mapTo = this._mapping[k];
+                    if (map.hasOwnProperty(mapTo)) {
+                        map[k] = map[mapTo];
+                    } else {
+                        map[k] = mapTo;
+                    }
+                }
+                this._realKeyMap = map;
                 return map;
-            } else
-                return {};
+            } else {
+                this._realKeyMap = this._mapping;
+                return this._mapping;
+            }
+        };
+        ArrayProvider.prototype.mapKey = function (key) {
+            var map = this.columnKeyMap();
+            var realKey = map[key];
+            if (realKey != null) {
+                return realKey;
+            } else {
+                return key;
+            }
+        };
+        ArrayProvider.prototype.addKeyMap = function (key, mapTo) {
+            this._mapping[key] = mapTo;
+            this._realKeyMap = null;
+        };
+        ArrayProvider.prototype.removeKeyMap = function (key) {
+            delete this._mapping[key];
+            this._realKeyMap = null;
         };
         ArrayProvider.prototype.sort = function (key, desc, func) {
             if (typeof func === "undefined") { func = null; }
@@ -1549,6 +2183,8 @@ var tui;
         function RemoteCursorProvider(cacheSize) {
             if (typeof cacheSize === "undefined") { cacheSize = 100; }
             this._queryTimer = null;
+            this._mapping = {};
+            this._realKeyMap = null;
             this._firstQuery = true;
             this._cacheSize = cacheSize;
             this._invalid = true;
@@ -1575,15 +2211,59 @@ var tui;
             else
                 return null;
         };
+        RemoteCursorProvider.prototype.cell = function (index, key) {
+            var row = this.at(index);
+            if (!row)
+                return null;
+            var map = this.columnKeyMap();
+            var realKey = map[key];
+            if (realKey != null) {
+                return row[realKey];
+            } else {
+                return row[key];
+            }
+        };
+        RemoteCursorProvider.prototype.addKeyMap = function (key, mapTo) {
+            this._mapping[key] = mapTo;
+            this._realKeyMap = null;
+        };
+        RemoteCursorProvider.prototype.removeKeyMap = function (key) {
+            delete this._mapping[key];
+            this._realKeyMap = null;
+        };
         RemoteCursorProvider.prototype.columnKeyMap = function () {
+            if (this._realKeyMap !== null)
+                return this._realKeyMap;
             if (this._head) {
                 var map = {};
                 for (var i = 0; i < this._head.length; i++) {
                     map[this._head[i]] = i;
                 }
+                for (var k in this._mapping) {
+                    if (!this._mapping.hasOwnProperty(k))
+                        continue;
+                    var mapTo = this._mapping[k];
+                    if (map.hasOwnProperty(mapTo)) {
+                        map[k] = map[mapTo];
+                    } else {
+                        map[k] = mapTo;
+                    }
+                }
+                this._realKeyMap = map;
                 return map;
-            } else
-                return {};
+            } else {
+                this._realKeyMap = this._mapping;
+                return this._mapping;
+            }
+        };
+        RemoteCursorProvider.prototype.mapKey = function (key) {
+            var map = this.columnKeyMap();
+            var realKey = map[key];
+            if (realKey != null) {
+                return realKey;
+            } else {
+                return key;
+            }
         };
         RemoteCursorProvider.prototype.sort = function (key, desc, func) {
             if (typeof func === "undefined") { func = null; }
@@ -1714,7 +2394,7 @@ var tui;
     tui.closeTooltip = closeTooltip;
 
     function whetherShowTooltip(target) {
-        if (target === _tooltip)
+        if (tui.isAncestry(target, _tooltip))
             return;
         var obj = target;
         while (obj) {
@@ -1958,33 +2638,41 @@ var tui;
                 }
             };
 
-            Control.prototype.ajaxForm = function (txt) {
+            Control.prototype.form = function (txt) {
                 if (typeof txt === "string") {
-                    this.attr("data-ajax-form", txt);
+                    this.attr("data-form", txt);
                     return this;
                 } else
-                    return this.attr("data-ajax-form");
+                    return this.attr("data-form");
             };
 
-            Control.prototype.ajaxField = function (txt) {
+            Control.prototype.field = function (txt) {
                 if (typeof txt === "string") {
-                    this.attr("data-ajax-field", txt);
+                    this.attr("data-field", txt);
                     return this;
                 } else
-                    return this.attr("data-ajax-field");
+                    return this.attr("data-field");
             };
 
             Control.prototype.blur = function () {
-                var el = this.elem();
-                if (el) {
-                    el.blur();
+                if (this[0]) {
+                    this[0].blur();
                 }
             };
             Control.prototype.focus = function () {
-                var el = this.elem();
-                if (el) {
+                var _this = this;
+                if (this[0]) {
                     setTimeout(function () {
-                        el.focus();
+                        _this[0].focus();
+                    }, 0);
+                }
+            };
+
+            Control.prototype.focusWithoutScroll = function () {
+                var _this = this;
+                if (this[0]) {
+                    setTimeout(function () {
+                        tui.focusWithoutScroll(_this[0]);
                     }, 0);
                 }
             };
@@ -2010,6 +2698,10 @@ var tui;
             Control.prototype.isPosterity = function (posterity) {
                 return tui.isPosterity(this[0], posterity);
             };
+
+            Control.prototype.autoRefresh = function () {
+                return true;
+            };
             return Control;
         })(tui.EventObject);
         _ctrl.Control = Control;
@@ -2021,7 +2713,7 @@ var tui;
                 if (!elem)
                     return null;
                 if (elem._ctrl) {
-                    elem._ctrl.refresh();
+                    elem._ctrl.autoRefresh() && elem._ctrl.refresh();
                     return elem._ctrl;
                 } else if (typeof constructParam !== tui.undef) {
                     return new constructor(elem, constructParam);
@@ -2030,7 +2722,7 @@ var tui;
             } else if (param && param.nodeName) {
                 elem = param;
                 if (elem._ctrl) {
-                    elem._ctrl.refresh();
+                    elem._ctrl.autoRefresh() && elem._ctrl.refresh();
                     return elem._ctrl;
                 } else if (typeof constructParam !== tui.undef) {
                     return new constructor(elem, constructParam);
@@ -2101,9 +2793,10 @@ var tui;
                 var parent = this[0].parentElement;
                 while (parent) {
                     if ($(parent).hasClass("tui-form")) {
-                        this.ajaxForm($(parent).attr("id"));
+                        this.form($(parent).attr("id"));
                         break;
-                    }
+                    } else
+                        parent = parent.parentElement;
                 }
                 if (!this.hasAttr("data-target-property")) {
                     this.targetProperty("value");
@@ -2229,6 +2922,7 @@ var tui;
                     var param = { value: val };
                     if (this.fire("setvalue", param) === false)
                         return this;
+                    val = param.value;
                     if (!target) {
                         this.attr("data-value", JSON.stringify(val));
                         return this;
@@ -2269,22 +2963,19 @@ var tui;
                     }
                     return this;
                 } else {
+                    var val = null;
                     if (!target) {
                         var strval = this.attr("data-value");
                         if (strval === null) {
-                            return null;
+                            val = null;
                         } else {
                             try  {
-                                return eval("(" + strval + ")");
+                                val = eval("(" + strval + ")");
                             } catch (err) {
-                                return null;
+                                val = null;
                             }
                         }
-                    }
-                    var param = { value: null };
-                    if (this.fire("getvalue", param) === false)
-                        return param.value;
-                    if (isGroup) {
+                    } else if (isGroup) {
                         var controls = $("." + _ctrl.Radiobox.CLASS + "[data-group='" + target + "']");
                         var values = [];
                         if (controls.length > 0) {
@@ -2297,9 +2988,9 @@ var tui;
                                 }
                             });
                             if (values.length > 0)
-                                return values[0];
+                                val = values[0];
                             else
-                                return null;
+                                val = null;
                         } else {
                             controls = $("." + _ctrl.Checkbox.CLASS + "[data-group='" + target + "']");
                             controls.each(function (index, elem) {
@@ -2310,24 +3001,26 @@ var tui;
                                     }
                                 }
                             });
-                            return values;
+                            val = values;
                         }
                     } else {
                         var elem = document.getElementById(target);
                         if (elem && elem["_ctrl"]) {
                             var ctrl = elem["_ctrl"];
                             if (typeof ctrl[property] === "function") {
-                                return ctrl[property]();
+                                val = ctrl[property]();
                             }
                         } else if (elem) {
                             if (typeof elem[property] === "function") {
-                                return elem[property]();
+                                val = elem[property]();
                             } else {
-                                return elem[property];
+                                val = elem[property];
                             }
                         }
-                        return null;
                     }
+                    var param = { value: val };
+                    this.fire("pregetvalue", param);
+                    return param.value;
                 }
             };
             FormAgent.CLASS = "tui-form-agent";
@@ -2371,7 +3064,7 @@ var tui;
                 for (var i = 0; i < this[0].childNodes.length; i++) {
                     if (this[0].childNodes[i].nodeName.toLowerCase() === "span") {
                         var agent = tui.ctrl.formAgent(this[0].childNodes[i]);
-                        agent.ajaxForm(this.id());
+                        agent.form(this.id());
                     }
                 }
 
@@ -2396,6 +3089,18 @@ var tui;
                     return this;
                 } else
                     return this.is("data-show-error");
+            };
+
+            Form.prototype.isShowWait = function (val) {
+                if (typeof val !== tui.undef) {
+                    this.is("data-show-wait", !!val);
+                    return this;
+                } else {
+                    if (this.hasAttr("data-show-wait"))
+                        return this.is("data-show-wait");
+                    else
+                        return false;
+                }
             };
 
             Form.prototype.action = function (url) {
@@ -2446,12 +3151,12 @@ var tui;
                     return this.attr("data-target-redirect");
             };
 
-            Form.prototype.targetSubmitForm = function (val) {
+            Form.prototype.submitForm = function (val) {
                 if (typeof val === "string") {
-                    this.attr("data-target-submit-form", val);
+                    this.attr("data-submit-form", val);
                     return this;
                 } else
-                    return this.attr("data-target-submit-form");
+                    return this.attr("data-submit-form");
             };
 
             Form.prototype.validate = function () {
@@ -2460,7 +3165,7 @@ var tui;
                     return true;
                 }
                 var valid = true;
-                $("[data-ajax-form='" + id + "']").each(function (index, elem) {
+                $("[data-form='" + id + "']").each(function (index, elem) {
                     if (typeof this._ctrl.validate === "function")
                         if (!this._ctrl.validate())
                             valid = false;
@@ -2480,10 +3185,10 @@ var tui;
                 if (typeof val !== tui.undef) {
                     // Dispatch data to other controls
                     var id = this.id();
-                    id && $("[data-ajax-form='" + id + "']").each(function (index, elem) {
+                    id && $("[data-form='" + id + "']").each(function (index, elem) {
                         var field;
                         if (this._ctrl) {
-                            field = this._ctrl.ajaxField();
+                            field = this._ctrl.field();
                             if (!field) {
                                 return;
                             } else if (field === "*") {
@@ -2495,7 +3200,7 @@ var tui;
                                 }
                             }
                         } else {
-                            field = $(elem).attr("data-ajax-field");
+                            field = $(elem).attr("data-field");
                             if (!field) {
                                 return;
                             } else if (field === "*") {
@@ -2513,11 +3218,11 @@ var tui;
 
                     // Collect all fields from other controls
                     var id = this.id();
-                    id && $("[data-ajax-form='" + id + "']").each(function (index, elem) {
+                    id && $("[data-form='" + id + "']").each(function (index, elem) {
                         var field;
                         var val;
                         if (this._ctrl) {
-                            field = this._ctrl.ajaxField();
+                            field = this._ctrl.field();
                             if (!field)
                                 return;
                             if (this._ctrl.value)
@@ -2525,7 +3230,7 @@ var tui;
                             else
                                 return;
                         } else {
-                            field = $(elem).attr("data-ajax-field");
+                            field = $(elem).attr("data-field");
                             if (typeof field !== "string")
                                 return;
                             val = $(elem).attr("data-value");
@@ -2548,7 +3253,7 @@ var tui;
             Form.prototype.clear = function () {
                 this._immediateValue = tui.undefVal;
                 var id = this.id();
-                id && $("[data-ajax-form='" + id + "']").each(function (index, elem) {
+                id && $("[data-form='" + id + "']").each(function (index, elem) {
                     if (elem._ctrl) {
                         if (typeof elem._ctrl.value === "function")
                             elem._ctrl.value(null);
@@ -2574,6 +3279,10 @@ var tui;
                 if (this.fire("submit", { id: this.id(), data: data }) === false)
                     return;
                 var self = this;
+                var waitDlg = null;
+                if (this.isShowWait()) {
+                    waitDlg = tui.waitbox(tui.str("Loading..."));
+                }
                 $.ajax({
                     "type": this.method(),
                     "timeout": this.timeout(),
@@ -2581,6 +3290,7 @@ var tui;
                     "contentType": "application/json",
                     "data": (this.method() === "GET" ? data : JSON.stringify(data)),
                     "complete": function (jqXHR, status) {
+                        waitDlg && waitDlg.close();
                         if (status === "success") {
                             if (self.fire("success", { jqXHR: jqXHR, status: status }) === false) {
                                 return;
@@ -2616,24 +3326,30 @@ var tui;
                                     }
                                 }
                             }
-                            var targetSubmitForm = self.targetSubmitForm();
+                            var targetSubmitForm = self.submitForm();
                             if (targetSubmitForm) {
                                 var form = tui.ctrl.form(targetSubmitForm);
                                 form && form.submit();
                             }
                         } else {
-                            if (self.isShowError())
+                            if (self.isShowError() && !(Form.ignoreErrors && Form.ignoreErrors.indexOf(jqXHR.status) >= 0)) {
                                 tui.errbox(tui.str(status) + " (" + jqXHR.status + ")", tui.str("Failed"));
+                            }
                         }
                     },
                     "processData": (this.method() === "GET" ? true : false)
                 });
+            };
+
+            Form.ignoreError = function (errorCodeList) {
+                Form.ignoreErrors = errorCodeList;
             };
             Form.CLASS = "tui-form";
             Form.METHODS = ["GET", "POST", "PUT", "DELETE"];
             Form.STATUS = [
                 "success", "notmodified", "error", "timeout", "abort", "parsererror"
             ];
+            Form.ignoreErrors = null;
             return Form;
         })(_ctrl.Control);
         _ctrl.Form = Form;
@@ -2656,22 +3372,132 @@ var tui;
             function Button(el) {
                 var _this = this;
                 _super.call(this, "a", Button.CLASS, el);
+                this._data = null;
+                this._columnKeyMap = null;
+                this._isMenu = false;
 
                 this.disabled(this.disabled());
                 this.selectable(false);
                 this.exposeEvents("mousedown mouseup mousemove mouseenter mouseleave keydown keyup");
+
+                var self = this;
+
+                function openMenu() {
+                    if (self.isMenu()) {
+                        var menu = tui.ctrl.menu(self._data);
+                        menu.show(self[0], "Lb");
+                        menu.on("select", function (data) {
+                            self.fire("select", data);
+                        });
+                        menu.on("close", function () {
+                            self.actived(false);
+                        });
+                        return;
+                    }
+                    var pop = tui.ctrl.popup();
+                    var list = tui.ctrl.list();
+                    list.consumeMouseWheelEvent(true);
+                    list.rowcheckable(false);
+                    pop.on("close", function () {
+                        self.actived(false);
+                    });
+                    function doSelectItem(data) {
+                        var item = list.activeItem();
+                        var link = item[self._linkColumnKey];
+                        if (link) {
+                            pop.close();
+                            window.location.href = link;
+                            return;
+                        }
+                        var action = item["action"];
+                        if (typeof action !== tui.undef) {
+                            if (typeof action === "function") {
+                                action();
+                            }
+                            pop.close();
+                            self.focus();
+                            self.fireClick(data["event"]);
+                            return;
+                        }
+                        self.value(item[self._keyColumnKey]);
+                        var targetElem = self.menuBind();
+                        if (targetElem === null)
+                            self.text(item[self._valueColumnKey]);
+                        else {
+                            targetElem = document.getElementById(targetElem);
+                            if (targetElem) {
+                                if (targetElem._ctrl) {
+                                    if (typeof targetElem._ctrl.text === "function")
+                                        targetElem._ctrl.text(item[self._valueColumnKey]);
+                                } else
+                                    targetElem.innerHTML = item[self._valueColumnKey];
+                            }
+                        }
+                        pop.close();
+                        self.focus();
+                        self.fireClick(data["event"]);
+                    }
+
+                    list.on("rowclick", function (data) {
+                        doSelectItem(data);
+                    });
+                    list.on("keydown", function (data) {
+                        if (data["event"].keyCode === 13) {
+                            doSelectItem(data);
+                        }
+                    });
+
+                    var testDiv = document.createElement("span");
+                    testDiv.className = "tui-list-test-width-cell";
+                    document.body.appendChild(testDiv);
+
+                    var listWidth = self[0].offsetWidth;
+                    for (var i = 0; i < self._data.length(); i++) {
+                        var item = self._data.at(i);
+                        testDiv.innerHTML = item[self._valueColumnKey];
+                        if (testDiv.offsetWidth + 40 > listWidth) {
+                            listWidth = testDiv.offsetWidth + 40;
+                        }
+                    }
+                    document.body.removeChild(testDiv);
+
+                    list[0].style.width = listWidth + "px";
+                    list.data(self._data);
+                    pop.show(list[0], self[0], "Rb");
+
+                    var items = self._data ? self._data.length() : 0;
+                    if (items < 1)
+                        items = 1;
+                    else if (items > 15)
+                        items = 15;
+
+                    list[0].style.height = items * list.lineHeight() + 4 + "px";
+                    list.refresh();
+                    pop.refresh();
+                    var val = self.value();
+                    if (val && val.length > 0) {
+                        list.activeRowByKey(val);
+                        list.scrollTo(list.activerow());
+                    }
+                    list.focus();
+                }
+
                 $(this[0]).on("mousedown", function (e) {
                     if (_this.disabled())
                         return;
                     _this.actived(true);
                     var self = _this;
-                    function releaseMouse(e) {
-                        self.actived(false);
-                        if (tui.isFireInside(self[0], e))
-                            self.fireClick(e);
-                        $(document).off("mouseup", releaseMouse);
+                    if (_this.data()) {
+                        setTimeout(openMenu, 50);
+                    } else {
+                        function releaseMouse(e) {
+                            self.actived(false);
+                            if (tui.isFireInside(self[0], e))
+                                self.fireClick(e);
+                            $(document).off("mouseup", releaseMouse);
+                        }
+                        $(document).on("mouseup", releaseMouse);
                     }
-                    $(document).on("mouseup", releaseMouse);
                 });
 
                 $(this[0]).on("keydown", function (e) {
@@ -2683,10 +3509,15 @@ var tui;
                     }
                     if (e.keyCode === 13) {
                         e.preventDefault();
-                        e.type = "click";
-                        setTimeout(function () {
-                            _this.fireClick(e);
-                        }, 100);
+                        if (_this.data()) {
+                            _this.actived(true);
+                            openMenu();
+                        } else {
+                            e.type = "click";
+                            setTimeout(function () {
+                                _this.fireClick(e);
+                            }, 100);
+                        }
                     }
                 });
 
@@ -2694,13 +3525,28 @@ var tui;
                     if (_this.disabled())
                         return;
                     if (e.keyCode === 32) {
-                        _this.actived(false);
-                        e.type = "click";
-                        setTimeout(function () {
-                            _this.fireClick(e);
-                        }, 50);
+                        if (_this.data()) {
+                            openMenu();
+                        } else {
+                            _this.actived(false);
+                            e.type = "click";
+                            setTimeout(function () {
+                                _this.fireClick(e);
+                            }, 50);
+                        }
                     }
                 });
+
+                var predefined = this.attr("data-data");
+                if (predefined) {
+                    predefined = eval("(" + predefined + ")");
+                    this.data(predefined);
+                }
+                predefined = this.attr("data-menu");
+                if (predefined) {
+                    predefined = eval("(" + predefined + ")");
+                    this.menu(predefined);
+                }
             }
             Button.prototype.fireClick = function (e) {
                 if (this.fire("click", { "ctrl": this[0], "event": e }) === false)
@@ -2722,21 +3568,93 @@ var tui;
                     return this.attr("data-submit-form");
             };
 
-            Button.prototype.text = function (t) {
-                if (this[0])
-                    return tui.elementText(this[0], t);
-                return null;
+            Button.prototype.value = function (val) {
+                if (typeof val !== tui.undef) {
+                    this.attr("data-value", JSON.stringify(val));
+                    return this;
+                } else {
+                    val = this.attr("data-value");
+                    if (val === null) {
+                        return null;
+                    } else {
+                        try  {
+                            return eval("(" + val + ")");
+                        } catch (err) {
+                            return null;
+                        }
+                    }
+                }
             };
 
-            Button.prototype.html = function (t) {
-                if (this[0]) {
-                    if (typeof t !== tui.undef) {
-                        $(this[0]).html(t);
-                        return this;
-                    } else
-                        return $(this[0]).html();
+            Button.prototype.menuBind = function (val) {
+                if (typeof val !== tui.undef) {
+                    this.attr("data-menu-bind", val);
+                    return this;
+                } else
+                    return this.attr("data-menu-bind");
+            };
+
+            Button.prototype.columnKey = function (key) {
+                var val = this._columnKeyMap[key];
+                if (typeof val === "number" && val >= 0)
+                    return val;
+                else
+                    return key;
+            };
+
+            Button.prototype.isMenu = function (val) {
+                if (typeof val === "boolean") {
+                    this.is("data-is-menu", val);
+                    return this;
+                } else
+                    return this.is("data-is-menu");
+            };
+
+            Button.prototype.menu = function (data) {
+                if (data) {
+                    this.isMenu(true);
+                    this.data(data);
+                } else {
+                    if (this.isMenu())
+                        return this._data;
+                    else
+                        return null;
                 }
-                return null;
+            };
+
+            Button.prototype.data = function (data) {
+                if (data) {
+                    var self = this;
+                    if (data instanceof Array || data.data && data.data instanceof Array) {
+                        data = new tui.ArrayProvider(data);
+                    }
+                    if (typeof data.length !== "function" || typeof data.sort !== "function" || typeof data.at !== "function" || typeof data.columnKeyMap !== "function") {
+                        throw new Error("TUI Button: need a data provider.");
+                    }
+                    this._data = data;
+                    if (data)
+                        this._columnKeyMap = data.columnKeyMap();
+                    else
+                        this._columnKeyMap = {};
+                    this._keyColumnKey = this.columnKey("key");
+                    this._valueColumnKey = this.columnKey("value");
+                    this._childrenColumnKey = this.columnKey("children");
+                    this._linkColumnKey = this.columnKey("link");
+                    return this;
+                } else
+                    return this._data;
+            };
+
+            Button.prototype.text = function (val) {
+                if (typeof val !== tui.undef) {
+                    $(this[0]).html(val);
+                    return this;
+                } else
+                    return $(this[0]).html();
+            };
+
+            Button.prototype.html = function (val) {
+                return this.text(val);
             };
 
             Button.prototype.disabled = function (val) {
@@ -2785,6 +3703,7 @@ var tui;
                 $(this[0]).on("mousedown", function (e) {
                     if (_this.disabled())
                         return;
+                    _this[0].focus();
                     _this.actived(true);
                     var self = _this;
                     function releaseMouse(e) {
@@ -2969,6 +3888,7 @@ var tui;
                 $(this[0]).on("mousedown", function (e) {
                     if (_this.disabled())
                         return;
+                    _this[0].focus();
                     _this.actived(true);
                     var self = _this;
                     function releaseMouse(e) {
@@ -3442,6 +4362,7 @@ var tui;
                 this._parentPopup = null;
                 this._childPopup = null;
                 this._checkInterval = null;
+                this._showing = false;
             }
             Popup.prototype.getParentPopup = function (elem) {
                 var pop = _currentPopup;
@@ -3454,8 +4375,15 @@ var tui;
                 return pop;
             };
 
+            Popup.prototype.isShowing = function () {
+                return this._showing;
+            };
+
             Popup.prototype.show = function (content, param, bindType) {
                 var _this = this;
+                if (this._showing)
+                    return;
+                this._showing = true;
                 if (typeof param === "string")
                     param = document.getElementById(param);
                 var elem = null;
@@ -3485,6 +4413,7 @@ var tui;
                     }
                     this._parent.appendChild(elem);
                     elem.focus();
+
                     _currentPopup = this;
                     elem.setAttribute("tabIndex", "-1");
                     if (typeof content === "string") {
@@ -3507,6 +4436,9 @@ var tui;
             };
 
             Popup.prototype.close = function () {
+                if (!this._showing)
+                    return;
+                this.closeChild();
                 if (this._checkInterval) {
                     clearInterval(this._checkInterval);
                     this._checkInterval = null;
@@ -3519,6 +4451,8 @@ var tui;
                 this.parent(null);
                 if (_currentPopup)
                     _currentPopup.child(null);
+                this.fire("close", {});
+                this._showing = false;
             };
 
             Popup.prototype.closeChild = function () {
@@ -3610,15 +4544,15 @@ var tui;
                 if (pos.y < 2)
                     pos.y = 2;
 
-                elem.style.left = pos.x + 2 + "px";
-                elem.style.top = pos.y + 2 + "px";
+                elem.style.left = pos.x + "px";
+                elem.style.top = pos.y + "px";
             };
             Popup.CLASS = "tui-popup";
             return Popup;
         })(ctrl.Control);
         ctrl.Popup = Popup;
 
-        function checkPopup() {
+        function checkPopup(e) {
             setTimeout(function () {
                 var obj = document.activeElement;
                 while (_currentPopup) {
@@ -3643,7 +4577,7 @@ var tui;
         * @param el {HTMLElement or element id or construct info}
         */
         function popup() {
-            return tui.ctrl.control(null, Popup);
+            return new Popup();
         }
         ctrl.popup = popup;
     })(tui.ctrl || (tui.ctrl = {}));
@@ -4131,6 +5065,26 @@ var tui;
         return dlg;
     }
     tui.waitbox = waitbox;
+
+    function loadHTML(url, elem, completeCallback, async, method, data) {
+        if (typeof async === "undefined") { async = true; }
+        tui.loadURL(url, function (status, jqXHR) {
+            if (typeof completeCallback === "function" && completeCallback(status, jqXHR) === false) {
+                return;
+            }
+            if (status === "success") {
+                var matched = /<body[^>]*>((?:.|[\r\n])*)<\/body>/gim.exec(jqXHR.responseText);
+                if (matched != null)
+                    elem.innerHTML = matched[1];
+                else
+                    elem.innerHTML = jqXHR.responseText;
+                tui.ctrl.initCtrls(elem);
+            } else {
+                tui.errbox(tui.str(status) + " (" + jqXHR.status + ")", tui.str("Failed"));
+            }
+        }, async, method, data);
+    }
+    tui.loadHTML = loadHTML;
 })(tui || (tui = {}));
 var tui;
 (function (tui) {
@@ -4829,6 +5783,7 @@ var tui;
     (function (ctrl) {
         var Grid = (function (_super) {
             __extends(Grid, _super);
+            //private _initInterval = null;
             function Grid(el) {
                 _super.call(this, "div", Grid.CLASS, el);
                 this._tableId = tui.uuid();
@@ -4849,10 +5804,9 @@ var tui;
                 // Drawing related flags
                 this._selectrows = [];
                 this._activerow = null;
-                this._columnKeyMap = null;
+                //private _columnKeyMap: {} = null;
                 this._noRefresh = false;
                 this._initialized = false;
-                this._initInterval = null;
                 var self = this;
 
                 this.attr("tabIndex", "0");
@@ -5023,11 +5977,10 @@ var tui;
                 //	}, 100);
                 //}
             }
-            Grid.prototype.release = function () {
-                if (this._initInterval)
-                    clearInterval(this._initInterval);
-            };
-
+            //release() {
+            //	if (this._initInterval)
+            //		clearInterval(this._initInterval);
+            //}
             // Make sure not access null object
             Grid.prototype.myData = function () {
                 return this._data || this._emptyData;
@@ -5117,7 +6070,7 @@ var tui;
                 line.appendChild(cell);
                 cell.innerHTML = "a";
                 this[0].appendChild(line);
-                this._lineHeight = line.offsetHeight;
+                this._lineHeight = $(line).outerHeight(); //line.offsetHeight;
                 this._borderWidth = $(cell).outerWidth() - $(cell).width();
                 cell.className = "tui-grid-head-cell";
                 line.className = "tui-grid-head";
@@ -5325,7 +6278,7 @@ var tui;
                     var col = columns[i];
                     var key = null;
                     if (typeof col.key !== tui.undef && col.key !== null) {
-                        key = this._columnKeyMap[col.key];
+                        key = this.myData().mapKey(col.key);
                         if (typeof key === tui.undef)
                             key = col.key;
                     }
@@ -5360,7 +6313,8 @@ var tui;
                 var self = this;
                 var columns = this.myColumns();
                 var data = this.myData();
-                var rowData = data.at(index);
+
+                //var rowData = data.at(index);
                 if (line.childNodes.length !== columns.length) {
                     line.innerHTML = "";
                     for (var i = 0; i < columns.length; i++) {
@@ -5374,16 +6328,14 @@ var tui;
                         line.appendChild(cell);
                     }
                 }
+                var rowData = data.at(index);
                 for (var i = 0; i < line.childNodes.length; i++) {
                     var cell = line.childNodes[i];
                     var col = columns[i];
                     var key = null;
-                    if (typeof col.key !== tui.undef && col.key !== null) {
-                        key = this._columnKeyMap[col.key];
-                        if (typeof key === tui.undef)
-                            key = col.key;
-                    }
-                    var value = (key !== null && rowData ? rowData[key] : " ");
+                    if (typeof col.key !== tui.undef)
+                        key = data.mapKey(col.key);
+                    var value = (key !== null && rowData ? rowData[key] : "");
                     this.drawCell(cell, cell.firstChild, col, key, value, rowData, index, i);
                 }
 
@@ -5468,7 +6420,19 @@ var tui;
             };
 
             Grid.prototype.lineHeight = function () {
-                return this._lineHeight;
+                if (typeof this._lineHeight !== tui.undef)
+                    return this._lineHeight;
+                else {
+                    var grid = document.createElement("div");
+                    grid.className = this[0].className;
+                    var line = document.createElement("div");
+                    line.className = "tui-grid-line";
+                    grid.appendChild(line);
+                    document.body.appendChild(grid);
+                    var lineHeight = line.offsetHeight;
+                    document.body.removeChild(grid);
+                    return lineHeight;
+                }
             };
 
             Grid.prototype.select = function (rows) {
@@ -5543,6 +6507,7 @@ var tui;
                 this._sortDesc = !!desc;
                 this._scrollTop = 0;
                 this.activerow(null);
+                this._initialized = false;
                 this.refresh();
                 return { colIndex: this._sortColumn, desc: this._sortDesc };
             };
@@ -5550,7 +6515,10 @@ var tui;
             /**
             * Adjust column width to adapt column content
             * @param {Number} columnIndex
-            * @param {Boolean} expandOnly only expand column width
+            * @param {Boolean} expandOnly Only expand column width
+            * @param {Boolean} displayedOnly Only compute displayed lines,
+            *		if this parameter is false then grid will compute all lines
+            *		regardless of whether it is visible
             */
             Grid.prototype.autofitColumn = function (columnIndex, expandOnly, displayedOnly) {
                 if (typeof expandOnly === "undefined") { expandOnly = false; }
@@ -5570,13 +6538,14 @@ var tui;
                 cell.style.visibility = "hidden";
                 cell.style.width = "auto";
                 document.body.appendChild(cell);
+                var data = this.myData();
                 var key = null;
                 if (typeof col.key !== tui.undef && col.key !== null) {
-                    key = this._columnKeyMap[col.key];
+                    key = data.mapKey(col.key);
                     if (typeof key === tui.undef)
                         key = col.key;
                 }
-                var data = this.myData();
+
                 var begin = displayedOnly ? this._bufferedBegin : 0;
                 var end = displayedOnly ? this._bufferedEnd : data.length();
                 for (var i = begin; i < end; i++) {
@@ -5606,12 +6575,14 @@ var tui;
                 document.body.removeChild(cell);
                 col.width = maxWidth;
                 col["_important"] = true;
+                this._initialized = false;
                 this.refresh();
             };
 
             Grid.prototype.hasHScroll = function (val) {
                 if (typeof val === "boolean") {
                     this.is("data-has-hscroll", val);
+                    this._initialized = false;
                     this.refresh();
                     return this;
                 } else
@@ -5621,6 +6592,7 @@ var tui;
             Grid.prototype.noHead = function (val) {
                 if (typeof val === "boolean") {
                     this.is("data-no-head", val);
+                    this._initialized = false;
                     this.refresh();
                     return this;
                 } else
@@ -5630,6 +6602,7 @@ var tui;
             Grid.prototype.columns = function (val) {
                 if (val) {
                     this._columns = val;
+                    this._initialized = false;
                     this.refresh();
                     return this;
                 } else {
@@ -5644,6 +6617,7 @@ var tui;
             Grid.prototype.rowselectable = function (val) {
                 if (typeof val === "boolean") {
                     this.is("data-rowselectable", val);
+                    this._initialized = false;
                     this.refresh();
                     return this;
                 } else
@@ -5672,6 +6646,7 @@ var tui;
             Grid.prototype.resizable = function (val) {
                 if (typeof val === "boolean") {
                     this.is("data-resizable", val);
+                    this._initialized = false;
                     this.refresh();
                     return this;
                 } else
@@ -5694,12 +6669,14 @@ var tui;
             };
 
             Grid.prototype.data = function (data) {
+                var _this = this;
                 if (data) {
                     var self = this;
                     if (data instanceof Array || data.data && data.data instanceof Array) {
                         data = new tui.ArrayProvider(data);
                     }
                     if (typeof data.length !== "function" || typeof data.sort !== "function" || typeof data.at !== "function" || typeof data.columnKeyMap !== "function") {
+                        this._initialized = false;
                         this.refresh();
                         throw new Error("TUI Grid: need a data provider.");
                     }
@@ -5708,19 +6685,20 @@ var tui;
                     typeof this._data.onupdate === "function" && this._data.onupdate(function (updateInfo) {
                         var b = updateInfo.begin;
                         var e = b + updateInfo.data.length;
+                        _this._initialized = false;
                         self.refresh();
                     });
+                    this._initialized = false;
                     this.refresh();
                     return this;
                 } else {
-                    return this._data;
+                    return this.myData();
                 }
             };
 
             Grid.prototype.consumeMouseWheelEvent = function (val) {
                 if (typeof val === "boolean") {
                     this.is("data-consume-mwe", val);
-                    this.refresh();
                     return this;
                 } else
                     return this.is("data-consume-mwe");
@@ -5746,9 +6724,14 @@ var tui;
                 this._initialized = true;
                 this.computeScroll();
                 this.clearBufferLines();
-                this._columnKeyMap = this.myData().columnKeyMap();
+
+                //			this._columnKeyMap = this.myData().columnKeyMap();
                 this.drawHead();
                 this.drawLines();
+            };
+
+            Grid.prototype.autoRefresh = function () {
+                return !this._initialized;
             };
 
             /// Following static methods are used for cell formatting.
@@ -5803,7 +6786,7 @@ var tui;
                 };
             };
 
-            Grid.chechBox = function (withHeader) {
+            Grid.checkbox = function (withHeader) {
                 if (typeof withHeader === "undefined") { withHeader = true; }
                 return function (data) {
                     if (data.rowIndex < 0) {
@@ -5975,15 +6958,15 @@ var tui;
         var TriState;
         (function (TriState) {
             TriState[TriState["Unchecked"] = 0] = "Unchecked";
-            TriState[TriState["HalfChecked"] = 1] = "HalfChecked";
-            TriState[TriState["Checked"] = 2] = "Checked";
+            TriState[TriState["Checked"] = 1] = "Checked";
+            TriState[TriState["HalfChecked"] = 2] = "HalfChecked";
         })(TriState || (TriState = {}));
         var List = (function (_super) {
             __extends(List, _super);
+            //private _columnKeyMap: {} = null;
             function List(el) {
                 var _this = this;
                 _super.call(this, "div", List.CLASS, null);
-                this._columnKeyMap = null;
                 var self = this;
                 this._grid = ctrl.grid(el);
                 this._grid.noRefresh(true);
@@ -6002,7 +6985,7 @@ var tui;
                                 var hasCheckbox = (typeof info.row[_this._checkedColumnKey] !== tui.undef);
                                 var isChecked = !!info.row[_this._checkedColumnKey];
                                 var hasChild = !!info.row[_this._childrenColumKey];
-                                var isHalfChecked = (_this.triState() && info.row[_this._checkedColumnKey] === 1 /* HalfChecked */);
+                                var isHalfChecked = (_this.triState() && info.row[_this._checkedColumnKey] === 2 /* HalfChecked */);
                                 var spaceSpan = document.createElement("span");
 
                                 spaceSpan.className = "tui-list-space";
@@ -6063,6 +7046,8 @@ var tui;
                     _this.fire("resizecolumn", data);
                 });
                 this._grid.on("keydown", function (data) {
+                    if (_this.fire("keydown", data) === false)
+                        return;
                     var keyCode = data["event"].keyCode;
                     if (keyCode === 32) {
                         var activeRowIndex = self._grid.activerow();
@@ -6071,12 +7056,12 @@ var tui;
                             data["event"].stopPropagation();
                         }
                     } else if (keyCode === 37) {
+                        var activeRowIndex = self._grid.activerow();
                         var item = self._grid.activeItem();
                         if (item) {
                             var children = item[self._childrenColumKey];
                             if (children && children.length > 0 && item[self._expandColumnKey]) {
-                                item[self._expandColumnKey] = false;
-                                _this.formatData();
+                                _this.onFoldRow(item, activeRowIndex, data["event"]);
                             } else {
                                 if (item["__parent"]) {
                                     self.activeItem(item["__parent"]);
@@ -6093,14 +7078,12 @@ var tui;
                         if (item) {
                             var children = item[self._childrenColumKey];
                             if (children && children.length > 0 && !item[self._expandColumnKey]) {
-                                item[self._expandColumnKey] = true;
-                                _this.formatData();
+                                _this.onExpandRow(item, activeRowIndex, data["event"]);
                             }
                             data["event"].preventDefault();
                             data["event"].stopPropagation();
                         }
                     }
-                    _this.fire("keydown", data);
                 });
                 this._grid.on("keyup", function (data) {
                     if (data["event"].keyCode === 32) {
@@ -6129,7 +7112,8 @@ var tui;
                 for (var i = 0; i < children.length; i++) {
                     if (!children[i])
                         continue;
-                    children[i][this._checkedColumnKey] = checkState;
+                    if (typeof children[i][this._checkedColumnKey] !== tui.undef)
+                        children[i][this._checkedColumnKey] = checkState;
                     var myChildren = children[i][this._childrenColumKey];
                     myChildren && myChildren.length > 0 && this.checkChildren(myChildren, checkState);
                 }
@@ -6142,7 +7126,9 @@ var tui;
                     var row = children[i];
                     if (!row)
                         continue;
-                    if (row[this._checkedColumnKey] === 1 /* HalfChecked */) {
+                    if (typeof row[this._checkedColumnKey] === tui.undef)
+                        continue;
+                    else if (row[this._checkedColumnKey] === 2 /* HalfChecked */) {
                         uncheckedCount++;
                         checkedCount++;
                         break;
@@ -6151,17 +7137,20 @@ var tui;
                     else
                         uncheckedCount++;
                 }
-                if (checkedCount === 0)
-                    parent[this._checkedColumnKey] = 0 /* Unchecked */;
-                else if (uncheckedCount === 0)
-                    parent[this._checkedColumnKey] = 2 /* Checked */;
-                else
-                    parent[this._checkedColumnKey] = 1 /* HalfChecked */;
+                if (typeof parent[this._checkedColumnKey] !== tui.undef) {
+                    if (checkedCount === 0)
+                        parent[this._checkedColumnKey] = 0 /* Unchecked */;
+                    else if (uncheckedCount === 0)
+                        parent[this._checkedColumnKey] = 1 /* Checked */;
+                    else
+                        parent[this._checkedColumnKey] = 2 /* HalfChecked */;
+                }
                 parent["__parent"] && this.checkParent(parent["__parent"]);
             };
 
             List.prototype.checkRow = function (row, checkState) {
-                row[this._checkedColumnKey] = checkState;
+                if (typeof row[this._checkedColumnKey] !== tui.undef)
+                    row[this._checkedColumnKey] = checkState;
                 if (this.triState()) {
                     var children = row[this._childrenColumKey];
                     children && children.length > 0 && this.checkChildren(children, checkState);
@@ -6174,8 +7163,8 @@ var tui;
                 var checkState;
                 if (this.triState()) {
                     checkState = row[this._checkedColumnKey];
-                    if (checkState === 1 /* HalfChecked */ || !checkState)
-                        checkState = 2 /* Checked */;
+                    if (checkState === 2 /* HalfChecked */ || !checkState)
+                        checkState = 1 /* Checked */;
                     else
                         checkState = 0 /* Unchecked */;
                 } else
@@ -6187,29 +7176,21 @@ var tui;
 
             List.prototype.onExpandRow = function (row, rowIndex, event) {
                 row[this._expandColumnKey] = true;
-                this.fire("rowexpand", { event: event, row: row, index: rowIndex });
                 this.formatData();
+                this.fire("rowexpand", { event: event, row: row, index: rowIndex });
             };
 
             List.prototype.onFoldRow = function (row, rowIndex, event) {
                 row[this._expandColumnKey] = false;
-                this.fire("rowfold", { event: event, row: row, index: rowIndex });
                 this.formatData();
-            };
-
-            List.prototype.columnKey = function (key) {
-                var val = this._columnKeyMap[key];
-                if (typeof val === "number" && val >= 0)
-                    return val;
-                else
-                    return key;
+                this.fire("rowfold", { event: event, row: row, index: rowIndex });
             };
 
             List.prototype.initData = function (useTriState) {
                 if (typeof useTriState === "undefined") { useTriState = false; }
                 var self = this;
                 var data = this._grid.data();
-                if (typeof data.process === "function") {
+                if (data && typeof data.process === "function") {
                     function checkChildren(input, parentRow) {
                         var checkedCount = 0, uncheckedCount = 0;
                         for (var i = 0; i < input.length; i++) {
@@ -6221,7 +7202,7 @@ var tui;
                                     var state = checkChildren(row[self._childrenColumKey], row);
                                     row[self._checkedColumnKey] = state;
                                 }
-                                if (row[self._checkedColumnKey] === 1 /* HalfChecked */) {
+                                if (row[self._checkedColumnKey] === 2 /* HalfChecked */) {
                                     uncheckedCount++;
                                     checkedCount++;
                                 } else if (!!row[self._checkedColumnKey])
@@ -6239,9 +7220,9 @@ var tui;
                             if (checkedCount === 0)
                                 return 0 /* Unchecked */;
                             else if (uncheckedCount === 0)
-                                return 2 /* Checked */;
+                                return 1 /* Checked */;
                             else
-                                return 1 /* HalfChecked */;
+                                return 2 /* HalfChecked */;
                         }
                     }
 
@@ -6260,7 +7241,7 @@ var tui;
             List.prototype.formatData = function () {
                 var self = this;
                 var data = this._grid.data();
-                if (typeof data.process === "function") {
+                if (data && typeof data.process === "function") {
                     function addChildren(input, output, level) {
                         for (var i = 0; i < input.length; i++) {
                             var row = input[i];
@@ -6368,11 +7349,11 @@ var tui;
             };
 
             List.prototype.checkItems = function (keys) {
-                this.doCheck(keys, 2 /* Checked */);
+                this.doCheck(keys, 1 /* Checked */);
                 return this;
             };
             List.prototype.checkAllItems = function () {
-                this.doCheck(null, 2 /* Checked */);
+                this.doCheck(null, 1 /* Checked */);
                 return this;
             };
             List.prototype.uncheckItems = function (keys) {
@@ -6404,10 +7385,32 @@ var tui;
                 return checkedItems;
             };
 
+            List.prototype.enumerate = function (func) {
+                var self = this;
+                var checkedItems = [];
+                function enumChildren(children) {
+                    for (var i = 0; i < children.length; i++) {
+                        func(children[i]);
+                        if (!children[i])
+                            continue;
+                        var myChilren = children[i][self._childrenColumKey];
+                        if (myChilren && myChilren.length > 0)
+                            enumChildren(myChilren);
+                    }
+                }
+                var data = this._grid.data();
+                if (data && typeof data.src === "function") {
+                    enumChildren(data.src());
+                }
+            };
+
             /**
             * Adjust column width to adapt column content
             * @param {Number} columnIndex
-            * @param {Boolean} expandOnly only expand column width
+            * @param {Boolean} expandOnly Only expand column width
+            * @param {Boolean} displayedOnly Only compute displayed lines,
+            *		if this parameter is false then grid will compute all lines
+            *		regardless of whether it is visible
             */
             List.prototype.autofitColumn = function (columnIndex, expandOnly, displayedOnly) {
                 if (typeof expandOnly === "undefined") { expandOnly = false; }
@@ -6463,8 +7466,8 @@ var tui;
                     var items = this.checkedItems();
                     var result = [];
                     for (var i = 0; i < items.length; i++) {
-                        if (typeof items[i].key !== tui.undef)
-                            result.push(items[i].key);
+                        if (typeof items[i][this._keyColumKey] !== tui.undef)
+                            result.push(items[i][this._keyColumKey]);
                     }
                     return result;
                 }
@@ -6475,17 +7478,13 @@ var tui;
                     var noRef = this._grid.noRefresh();
                     this._grid.noRefresh(true);
                     this._grid.data(data);
-                    var data = this._grid.data();
-                    if (data)
-                        this._columnKeyMap = data.columnKeyMap();
-                    else
-                        this._columnKeyMap = {};
-                    this._keyColumKey = this.columnKey("key");
-                    this._childrenColumKey = this.columnKey("children");
-                    this._checkedColumnKey = this.columnKey("checked");
-                    this._levelColumnKey = this.columnKey("level");
-                    this._valueColumnKey = this.columnKey("value");
-                    this._expandColumnKey = this.columnKey("expand");
+                    var finalData = this._grid.data();
+                    this._keyColumKey = finalData.mapKey("key");
+                    this._childrenColumKey = finalData.mapKey("children");
+                    this._checkedColumnKey = finalData.mapKey("checked");
+                    this._levelColumnKey = finalData.mapKey("level");
+                    this._valueColumnKey = finalData.mapKey("value");
+                    this._expandColumnKey = finalData.mapKey("expand");
                     if (this.triState())
                         this.initTriState();
                     else
@@ -6532,6 +7531,7 @@ var tui;
     /// <reference path="tui.upload.ts" />
     /// <reference path="tui.ctrl.popup.ts" />
     /// <reference path="tui.ctrl.calendar.ts" />
+    /// <reference path="tui.ctrl.list.ts" />
     /// <reference path="tui.ctrl.form.ts" />
     (function (_ctrl) {
         function validText(t) {
@@ -6561,6 +7561,8 @@ var tui;
                 this._message = "";
                 this._data = null;
                 this._columnKeyMap = null;
+                // Whether has been initialized.
+                this._initialized = false;
                 var self = this;
 
                 this._button = document.createElement("span");
@@ -6617,7 +7619,7 @@ var tui;
                         todayLine.appendChild(todayLink);
                         todayLine.className = "tui-input-select-bar";
                         calbox.appendChild(todayLine);
-                        pop.show(calbox, _this._button, "Rb");
+                        pop.show(calbox, self[0], "Rb");
                         calendar.focus();
                     } else if (_this.type() === "select") {
                         var pop = tui.ctrl.popup();
@@ -6654,7 +7656,7 @@ var tui;
                         });
                         list[0].style.width = self[0].offsetWidth + "px";
                         list.data(self._data);
-                        pop.show(list[0], self._button, "Rb");
+                        pop.show(list[0], self[0], "Rb");
 
                         var items = self._data ? self._data.length() : 0;
                         if (items < 1)
@@ -6721,7 +7723,7 @@ var tui;
                         });
                         bar.appendChild(okLink);
 
-                        pop.show(calbox, self._button, "Rb");
+                        pop.show(calbox, self[0], "Rb");
 
                         var items = self._data ? self._data.length() : 0;
                         if (items < 1)
@@ -6939,6 +7941,8 @@ var tui;
                 var val = this._columnKeyMap[key];
                 if (typeof val === "number" && val >= 0)
                     return val;
+                else if (typeof val === "string")
+                    return val;
                 else
                     return key;
             };
@@ -6983,6 +7987,7 @@ var tui;
                         this.attr("tabIndex", "0");
                     }
                     this.createTextbox();
+                    this._initialized = false;
                     this.refresh();
                     return this;
                 } else {
@@ -7002,11 +8007,13 @@ var tui;
                 if (typeof val === "object" && val) {
                     this.attr("data-validator", JSON.stringify(val));
                     this._invalid = false;
+                    this._initialized = false;
                     this.refresh();
                     return this;
                 } else if (val === null) {
                     this.removeAttr("data-validator");
                     this._invalid = false;
+                    this._initialized = false;
                     this.refresh();
                     return this;
                 } else {
@@ -7107,6 +8114,7 @@ var tui;
                 if (this._invalid && !this._message) {
                     this._message = tui.str("Invalid input.");
                 }
+                this._initialized = false;
                 this.refresh();
                 return !this._invalid;
             };
@@ -7115,6 +8123,7 @@ var tui;
                 if (typeof url === "string") {
                     this.attr("data-upload-url", url);
                     this.unmakeFileUpload();
+                    this._initialized = false;
                     this.refresh();
                     return this;
                 } else
@@ -7128,6 +8137,7 @@ var tui;
                         this.attr("data-text", txt);
                         this.attr("data-value", txt);
                         this._invalid = false;
+                        this._initialized = false;
                         this.refresh();
                     }
                     return this;
@@ -7140,6 +8150,7 @@ var tui;
                 if (typeof txt === "string") {
                     this.attr("data-accept", txt);
                     this.unmakeFileUpload();
+                    this._initialized = false;
                     this.refresh();
                     return this;
                 } else
@@ -7227,6 +8238,7 @@ var tui;
                             this.attr("data-text", "");
                             this._invalid = false;
                         }
+                        this._initialized = false;
                         this.refresh();
                     }
                     return this;
@@ -7245,10 +8257,19 @@ var tui;
             Input.prototype.readonly = function (val) {
                 if (typeof val === "boolean") {
                     this.is("data-readonly", val);
+                    this._initialized = false;
                     this.refresh();
                     return this;
                 } else
                     return this.is("data-readonly");
+            };
+
+            Input.prototype.dateFormat = function (format) {
+                if (typeof format === "string") {
+                    this.attr("data-date-format", format);
+                    return this;
+                } else
+                    return this.attr("data-date-format");
             };
 
             Input.prototype.value = function (val) {
@@ -7258,6 +8279,7 @@ var tui;
                         this.removeAttr("data-value");
                         this.attr("data-text", "");
                         this._invalid = false;
+                        this._initialized = false;
                         this.refresh();
                     } else if (type === "calendar") {
                         if (typeof val === "string") {
@@ -7268,27 +8290,28 @@ var tui;
                             }
                         }
                         if (val instanceof Date) {
-                            this.attr("data-value", tui.formatDate(val, "yyyy-MM-dd"));
+                            this.attr("data-value", tui.formatDate(val, "yyyy-MM-ddTHH:mm:ss.SSSZ"));
                             this.attr("data-text", tui.formatDate(val, tui.str("yyyy-MM-dd")));
                             this._invalid = false;
                         }
+                        this._initialized = false;
                         this.refresh();
                     } else if (type === "file") {
                         if (val === null) {
                             this.attr("data-value", JSON.stringify(val));
                             this.attr("data-text", "");
-                            this._invalid = false;
-                            this.refresh();
                         } else if (val.file && val.fileId) {
                             this.attr("data-value", JSON.stringify(val));
                             this.attr("data-text", val.file);
-                            this._invalid = false;
-                            this.refresh();
                         }
+                        this._invalid = false;
+                        this._initialized = false;
+                        this.refresh();
                     } else if (type === "text" || type === "password" || type === "custom-text") {
                         this.attr("data-text", val);
                         this.attr("data-value", val);
                         this._invalid = false;
+                        this._initialized = false;
                         this.refresh();
                     } else if (type === "select" || type === "multi-select") {
                         this.selectValue(this.valueToSelect(val));
@@ -7299,7 +8322,11 @@ var tui;
                     if (type === "calendar") {
                         if (val === null)
                             return null;
-                        return val;
+                        var dateVal = tui.parseDate(val);
+                        if (this.dateFormat() !== null) {
+                            return tui.formatDate(dateVal, this.dateFormat());
+                        } else
+                            return dateVal;
                     } else if (type === "file") {
                         if (val === null)
                             return null;
@@ -7315,6 +8342,7 @@ var tui;
                 if (typeof align === "string") {
                     if (align === "left" || align === "center" || align === "right") {
                         this.attr("data-text-algin", align);
+                        this._initialized = false;
                         this.refresh();
                     }
                     return this;
@@ -7329,6 +8357,7 @@ var tui;
             Input.prototype.icon = function (txt) {
                 if (typeof txt === "string") {
                     this.attr("data-icon", txt);
+                    this._initialized = false;
                     this.refresh();
                     return this;
                 } else
@@ -7338,10 +8367,43 @@ var tui;
             Input.prototype.placeholder = function (txt) {
                 if (typeof txt === "string") {
                     this.attr("data-placeholder", txt);
+                    this._initialized = false;
                     this.refresh();
                     return this;
                 } else
                     return this.attr("data-placeholder");
+            };
+
+            Input.prototype.getSelectRow = function () {
+                if (this.type() === "select") {
+                    var list = tui.ctrl.list();
+                    list.data(this._data);
+                    list.activeRowByKey(this.value());
+                    return list.activeItem();
+                } else if (this.type() === "multi-select") {
+                    var list = tui.ctrl.list();
+                    list.data(this._data);
+                    list.checkItems(this.value());
+                    return list.checkedItems();
+                } else
+                    return null;
+            };
+
+            Input.prototype.getSelectRowColumn = function (columnKey) {
+                if (this._data == null)
+                    return null;
+                var row = this.getSelectRow();
+                if (this.type() === "select") {
+                    return row[this._data.mapKey(columnKey)];
+                } else if (this.type() === "multi-select") {
+                    var result = [];
+                    var k = this._data.mapKey(columnKey);
+                    for (var i = 0; i < row.length; i++) {
+                        result.push(row[i][k]);
+                    }
+                    return result;
+                } else
+                    return null;
             };
 
             Input.prototype.submitForm = function (formId) {
@@ -7352,7 +8414,15 @@ var tui;
                     return this.attr("data-submit-form");
             };
 
+            Input.prototype.autoRefresh = function () {
+                return !this._initialized;
+            };
+
             Input.prototype.refresh = function () {
+                if (!this[0] || this[0].offsetWidth === 0 || this[0].offsetHeight === 0)
+                    return;
+                this._initialized = true;
+
                 var type = this.type().toLowerCase();
                 if (type === "file" && !this.readonly()) {
                     this.makeFileUpload();
@@ -7477,6 +8547,7 @@ var tui;
                 "*digital": "^\\d+$",
                 "*integer": "^[+\\-]?\\d+$",
                 "*float": "^[+\\-]?\\d*\\.\\d+$",
+                "*number": "^[+\\-]?\\d+|(\\d*\\.\\d+)$",
                 "*currency": "^-?\\d{1,3}(,\\d{3})*\\.\\d{2,3}$",
                 "*date": "^[0-9]{4}-1[0-2]|0?[1-9]-0?[1-9]|[12][0-9]|3[01]$",
                 "*any": "\\S+"
@@ -7795,7 +8866,7 @@ var tui;
 })(tui || (tui = {}));
 var tui;
 (function (tui) {
-    /// <reference path="tui.ctrl.form.ts" />
+    /// <reference path="tui.ctrl.control.ts" />
     (function (ctrl) {
         var Tab = (function (_super) {
             __extends(Tab, _super);
@@ -8137,6 +9208,796 @@ var tui;
         _ctrl.tips = tips;
 
         tui.ctrl.registerInitCallback(Tips.CLASS, tips);
+    })(tui.ctrl || (tui.ctrl = {}));
+    var ctrl = tui.ctrl;
+})(tui || (tui = {}));
+var tui;
+(function (tui) {
+    /// <reference path="tui.ctrl.control.ts" />
+    (function (ctrl) {
+        function getRealParent(monitoredParent) {
+            if (monitoredParent && monitoredParent.window && monitoredParent.document || monitoredParent.nodeName.toLowerCase() === "#document" || monitoredParent.nodeName.toLowerCase() === "body" || monitoredParent.nodeName.toLowerCase() === "html") {
+                // Bind to a window
+                if (monitoredParent.window && monitoredParent.document) {
+                    return monitoredParent;
+                } else if (monitoredParent.nodeName.toLowerCase() === "#document") {
+                    return monitoredParent.defaultView || monitoredParent.parentWindow;
+                } else {
+                    return tui.getWindow(monitoredParent);
+                }
+            } else {
+                return monitoredParent;
+            }
+        }
+
+        function getRealTagetScrollElement(monitoredParent) {
+            if (monitoredParent && monitoredParent.document) {
+                if (tui.ieVer > 0 || tui.ffVer > 0) {
+                    return monitoredParent.document.documentElement;
+                } else {
+                    return monitoredParent.document.body;
+                }
+            } else {
+                return monitoredParent;
+            }
+        }
+
+        /**
+        * AccordionGroup class used to display a foldable panel
+        * to show a group items in this panel.
+        */
+        var AccordionGroup = (function (_super) {
+            __extends(AccordionGroup, _super);
+            function AccordionGroup(el) {
+                var _this = this;
+                _super.call(this, "div", AccordionGroup.CLASS, el);
+                this._accordions = [];
+                this._anchors = [];
+                this._monitoredParent = null;
+                this._inScrolling = false;
+                this._onScroll = (function () {
+                    var self = _this;
+                    return function (e) {
+                        if (self._monitoredParent === null)
+                            return;
+                        if (self._inScrolling)
+                            return;
+                        var parent = getRealTagetScrollElement(self._monitoredParent);
+                        for (var i = 0; i < self._anchors.length; i++) {
+                            var elemId = self._anchors[i];
+                            var elem = document.getElementById(elemId);
+                            if (!elem)
+                                continue;
+                            var pos = tui.relativePosition(elem, parent);
+                            if (Math.abs(pos.y - parent.scrollTop - self.distance()) <= 20) {
+                                self.value("#" + elem.id);
+                                break;
+                            }
+                        }
+                    };
+                })();
+                this._onSelect = (function () {
+                    var self = _this;
+                    return function (data) {
+                        if (self.fire("select", data) !== false) {
+                            if (self.keyIsLink()) {
+                                if (data.key && data.key.slice(0, 1) === "#") {
+                                    var elemId = data.key.substr(1);
+                                    var elem = document.getElementById(elemId);
+                                    if (elem) {
+                                        var parent = getRealTagetScrollElement(self._monitoredParent);
+                                        var pos = tui.relativePosition(elem, parent);
+                                        self._inScrolling = true;
+                                        $(parent).stop().animate({ "scrollTop": pos.y - self.distance() }, 200, function () {
+                                            window.location.href = data.key;
+                                            parent.scrollTop = pos.y - self.distance();
+                                            self._inScrolling = false;
+                                        });
+                                    } else {
+                                        window.location.href = data.key;
+                                    }
+                                } else {
+                                    window.location.href = data.key;
+                                }
+                            }
+                        }
+                    };
+                })();
+
+                if (this.hasAttr("data-max-height"))
+                    this.maxHeight(this.maxHeight());
+
+                this.bindChildEvents();
+            }
+            AccordionGroup.prototype.distance = function (tolerance) {
+                if (typeof tolerance === "number") {
+                    this.attr("data-distance", tolerance);
+                    return this;
+                } else {
+                    var v = this.attr("data-distance");
+                    v = parseInt(this.attr("data-distance"));
+                    if (isNaN(v))
+                        return 50;
+                    else
+                        return v;
+                }
+            };
+
+            AccordionGroup.prototype.maxHeight = function (maxHeight) {
+                if (typeof maxHeight === "number") {
+                    this.attr("data-max-height", maxHeight);
+                    var allCaptionHeight = 0;
+                    for (var i = 0; i < this[0].childNodes.length; i++) {
+                        var elem = this[0].childNodes[i];
+                        if ($(elem).hasClass("tui-accordion")) {
+                            var acc = ctrl.accordion(elem);
+                            allCaptionHeight += acc.captionHeight();
+                        } else if (elem.tagName) {
+                            allCaptionHeight += $(elem).outerHeight();
+                        }
+                    }
+                    $(this[0]).find(".tui-accordion").each(function (idx, elem) {
+                        if (elem._ctrl) {
+                            elem._ctrl.maxHeight(maxHeight - allCaptionHeight + elem._ctrl.captionHeight());
+                            elem._ctrl.refresh();
+                        }
+                    });
+                    return this;
+                } else
+                    return parseInt(this.attr("data-max-height"));
+            };
+
+            AccordionGroup.prototype.value = function (key) {
+                if (typeof key !== tui.undef) {
+                    $(this[0]).find(".tui-accordion").each(function (idx, elem) {
+                        if (elem._ctrl) {
+                            elem._ctrl.value(key);
+                            if (elem._ctrl.value() !== null)
+                                return false;
+                        }
+                    });
+                } else {
+                    var val = null;
+                    $(this[0]).find(".tui-accordion").each(function (idx, elem) {
+                        if (elem._ctrl) {
+                            val = elem._ctrl.value();
+                            if (val !== null)
+                                return false;
+                        }
+                    });
+                    return val;
+                }
+            };
+
+            AccordionGroup.prototype.installMonitor = function (monitoredParent) {
+                if (typeof monitoredParent === "string")
+                    monitoredParent = document.getElementById(monitoredParent);
+                this._monitoredParent = getRealParent(monitoredParent);
+                if (this._monitoredParent)
+                    $(this._monitoredParent).scroll(this._onScroll);
+            };
+
+            AccordionGroup.prototype.uninstallMonitor = function () {
+                if (this._monitoredParent)
+                    $(this._monitoredParent).off("scroll", this._onScroll);
+                this._monitoredParent = null;
+            };
+
+            AccordionGroup.prototype.keyIsLink = function (val) {
+                if (typeof val !== tui.undef) {
+                    this.is("data-key-is-link", !!val);
+                    return this;
+                } else
+                    return this.is("data-key-is-link");
+            };
+
+            AccordionGroup.prototype.addAccordion = function (acc) {
+                this[0].appendChild(acc[0]);
+                this.bindChildEvents();
+            };
+
+            AccordionGroup.prototype.clear = function () {
+                this[0].innerHTML = "";
+                this.bindChildEvents();
+            };
+
+            AccordionGroup.prototype.bindChildEvents = function () {
+                for (var acc in this._accordions) {
+                    if (this._accordions.hasOwnProperty(acc))
+                        this._accordions[acc].off("select", this._onSelect);
+                }
+                this._accordions = [];
+                this._anchors = [];
+                var self = this;
+                $(this[0]).find(".tui-accordion").each(function (idx, elem) {
+                    if (typeof elem._ctrl === tui.undef)
+                        ctrl.accordion(elem);
+                    if (elem._ctrl) {
+                        self._accordions.push(elem._ctrl);
+                        elem._ctrl.on("select", self._onSelect);
+                        if (self.keyIsLink()) {
+                            elem._ctrl.enumerate(function (item) {
+                                if (item.key && item.key.slice(0, 1) === "#") {
+                                    self._anchors.push(item.key.substr(1));
+                                }
+                            });
+                        }
+                    }
+                });
+            };
+
+            AccordionGroup.prototype.refresh = function () {
+                for (var acc in this._accordions) {
+                    if (this._accordions.hasOwnProperty(acc))
+                        this._accordions[acc].refresh();
+                }
+            };
+            AccordionGroup.CLASS = "tui-accordion-group";
+            return AccordionGroup;
+        })(ctrl.Control);
+        ctrl.AccordionGroup = AccordionGroup;
+
+        function accordionGroup(param) {
+            return tui.ctrl.control(param, AccordionGroup);
+        }
+        ctrl.accordionGroup = accordionGroup;
+        tui.ctrl.registerInitCallback(AccordionGroup.CLASS, accordionGroup);
+    })(tui.ctrl || (tui.ctrl = {}));
+    var ctrl = tui.ctrl;
+})(tui || (tui = {}));
+var tui;
+(function (tui) {
+    /// <reference path="tui.ctrl.accordiongroup.ts" />
+    (function (_ctrl) {
+        /**
+        * Accordion class used to display a navigation sidebar to
+        * let user easy jump to a particular page section to read.
+        */
+        var Accordion = (function (_super) {
+            __extends(Accordion, _super);
+            function Accordion(el) {
+                var _this = this;
+                _super.call(this, "div", Accordion.CLASS, el);
+                this._caption = null;
+                this._list = null;
+                this._initialized = false;
+                this[0].innerHTML = "";
+                this._caption = document.createElement("div");
+                this._caption.className = "tui-accordion-caption";
+                this._caption.setAttribute("unselectable", "on");
+                this[0].appendChild(this._caption);
+                this._list = tui.ctrl.list();
+                this[0].appendChild(this._list[0]);
+                var predefined = this.attr("data-data");
+                if (predefined)
+                    predefined = eval("(" + predefined + ")");
+                $(this._caption).click(function () {
+                    _this.expanded(!_this.expanded());
+                });
+                $(this._caption).keydown(function (e) {
+                    if (e.keyCode === 13) {
+                        _this.expanded(!_this.expanded());
+                    }
+                });
+                var self = this;
+                this._list.on("rowclick keydown", function (data) {
+                    if (data["name"] === "rowclick") {
+                        self.value(self._list.data().at(data["index"])["key"]);
+                        var k = self.value();
+                        if (k)
+                            self.fire("select", { "ctrl": self[0], "key": k, "caption": self.caption() });
+                    } else if (data["event"].keyCode === 13) {
+                        self.value(self._list.activeItem().key);
+                        var k = self.value();
+                        if (k)
+                            self.fire("select", { "ctrl": self[0], "key": k, "caption": self.caption() });
+                    }
+                });
+                this._list.on("rowexpand rowfold", function (data) {
+                    self._list.activerow(null);
+                    data["event"].stopPropagation();
+                    self.refresh();
+                });
+                var originFormator = this._list.columns()[0].format;
+                this._list.columns()[0].format = function (data) {
+                    originFormator(data);
+                    if (typeof data.row.checked === tui.undef)
+                        return;
+                    var contentSpan = data.cell.firstChild;
+                    var checkSpan = contentSpan.childNodes[2];
+                    contentSpan.removeChild(checkSpan);
+                    if (data.row.checked) {
+                        $(data.cell.parentElement).addClass("tui-accordion-row-checked");
+                    } else
+                        $(data.cell.parentElement).removeClass("tui-accordion-row-checked");
+                };
+                var animation = this.useAnimation();
+                this.useAnimation(false);
+                if (predefined) {
+                    this.data(predefined);
+                    var checkedItems = this._list.checkedItems();
+                    if (checkedItems && checkedItems.length > 0) {
+                        var k = this._list.data().mapKey("key");
+                        this.value(checkedItems[0][k]);
+                        k = self.value();
+                        if (k)
+                            self.fire("select", { "ctrl": self[0], "key": k, "caption": self.caption() });
+                    } else {
+                        this.expanded(this.expanded());
+                    }
+                } else
+                    this.expanded(this.expanded());
+                this.useAnimation(animation);
+            }
+            Accordion.prototype.data = function (data) {
+                if (typeof data !== tui.undef) {
+                    this._list.data(data);
+                    this.refresh();
+                    return this;
+                } else
+                    return this._list.data(data);
+            };
+
+            Accordion.prototype.caption = function (val) {
+                if (typeof val === "string") {
+                    this.attr("data-caption", val);
+                    this._caption.innerHTML = val || "";
+                    this.refresh();
+                    return this;
+                } else
+                    return this.attr("data-caption");
+            };
+
+            Accordion.prototype.captionHeight = function () {
+                return $(this._caption).outerHeight();
+            };
+
+            Accordion.prototype.expanded = function (val) {
+                if (typeof val === "boolean") {
+                    this.is("data-expanded", val);
+                    if (this.expanded()) {
+                        var groupName = this.group();
+                        if (groupName) {
+                            var self = this;
+                            $("." + Accordion.CLASS + "[data-group='" + groupName + "']").each(function (index, elem) {
+                                var ctrl = elem["_ctrl"];
+                                if (ctrl && ctrl !== self && typeof ctrl.expanded === "function") {
+                                    ctrl.expanded(false);
+                                }
+                            });
+                        }
+                    }
+                    this.refresh();
+                    return this;
+                } else
+                    return this.is("data-expanded");
+            };
+
+            Accordion.prototype.maxHeight = function (maxHeight) {
+                if (typeof maxHeight === "number") {
+                    this.attr("data-max-height", maxHeight);
+                    return this;
+                } else
+                    return parseInt(this.attr("data-max-height"));
+            };
+
+            Accordion.prototype.group = function (val) {
+                if (typeof val !== tui.undef) {
+                    this.attr("data-group", val);
+                    return this;
+                } else
+                    return this.attr("data-group");
+            };
+
+            Accordion.prototype.value = function (key) {
+                if (typeof key !== tui.undef) {
+                    this._list.value([key]);
+                    this._list.activerow(null);
+                    if (this._list.value().length > 0) {
+                        this._list.activeRowByKey(key);
+                        this.expanded(true);
+                        this._list.scrollTo(this._list.activerow());
+                        var groupName = this.group();
+                        if (groupName) {
+                            var self = this;
+                            $("." + Accordion.CLASS + "[data-group='" + groupName + "']").each(function (index, elem) {
+                                var ctrl = elem["_ctrl"];
+                                if (ctrl && ctrl !== self && typeof ctrl.value === "function") {
+                                    ctrl.value(null);
+                                }
+                            });
+                        }
+                    }
+                    return this;
+                } else {
+                    var val = this._list.value();
+                    if (val === null)
+                        return val;
+                    else if (val.length > 0)
+                        return val[0];
+                    else
+                        return null;
+                }
+            };
+
+            Accordion.prototype.autoRefresh = function () {
+                return !this._initialized;
+            };
+
+            Accordion.prototype.enumerate = function (func) {
+                if (this._list)
+                    this._list.enumerate(func);
+            };
+
+            Accordion.prototype.useAnimation = function (val) {
+                if (typeof val === "boolean") {
+                    this.is("data-anmimation", val);
+                    return this;
+                } else
+                    return this.is("data-anmimation");
+            };
+
+            Accordion.prototype.refresh = function () {
+                var _this = this;
+                if (!this[0] || this[0].offsetWidth === 0 || this[0].offsetHeight === 0)
+                    return;
+                this._initialized = true;
+                var captionHeight;
+                if (!this.expanded()) {
+                    this._caption.setAttribute("tabIndex", "0");
+                    $(this._caption).removeClass("tui-expanded");
+                    captionHeight = this._caption.offsetHeight;
+                    $(this._caption).addClass("tui-expanded");
+                    if (this.useAnimation()) {
+                        $(this[0]).stop().animate({ "height": captionHeight + "px" }, Accordion.ANIMATION_DURATION, "linear", function () {
+                            $(_this._caption).removeClass("tui-expanded");
+                            _this._list[0].style.display = "none";
+                        });
+                    } else {
+                        $(this[0]).stop();
+                        this[0].style.height = captionHeight + "px";
+                        $(this._caption).removeClass("tui-expanded");
+                        this._list[0].style.display = "none";
+                    }
+                } else {
+                    this._caption.removeAttribute("tabIndex");
+                    $(this._caption).addClass("tui-expanded");
+                    this._list[0].style.display = "";
+                    captionHeight = this._caption.offsetHeight;
+                    var maxHeight = this.maxHeight();
+                    var lines = 1;
+                    if (this._list.data())
+                        lines = this._list.data().length();
+                    if (lines < 1)
+                        lines = 1;
+                    var height = this._list.lineHeight() * lines + 4;
+                    if (!isNaN(maxHeight) && height > maxHeight - captionHeight) {
+                        height = maxHeight - captionHeight;
+                    }
+                    this._list[0].style.height = height + "px";
+                    this._list[0].style.width = $(this[0]).width() + "px";
+                    this._list.refresh();
+                    if (this.useAnimation()) {
+                        $(this[0]).stop().animate({ "height": height + captionHeight + "px" }, Accordion.ANIMATION_DURATION, "linear", function () {
+                            $(_this._caption).addClass("tui-expanded");
+                            _this._list[0].style.display = "";
+                            _this._list.focus();
+                        });
+                    } else {
+                        $(this[0]).stop();
+                        this[0].style.height = height + captionHeight + "px";
+                        $(this._caption).addClass("tui-expanded");
+                        this._list[0].style.display = "";
+                        this._list.focus();
+                    }
+                }
+            };
+            Accordion.CLASS = "tui-accordion";
+
+            Accordion.ANIMATION_DURATION = 200;
+            return Accordion;
+        })(_ctrl.Control);
+        _ctrl.Accordion = Accordion;
+
+        function accordion(param) {
+            return tui.ctrl.control(param, Accordion);
+        }
+        _ctrl.accordion = accordion;
+        tui.ctrl.registerInitCallback(Accordion.CLASS, accordion);
+    })(tui.ctrl || (tui.ctrl = {}));
+    var ctrl = tui.ctrl;
+})(tui || (tui = {}));
+var tui;
+(function (tui) {
+    /// <reference path="tui.ctrl.popup.ts" />
+    (function (_ctrl) {
+        var Menu = (function (_super) {
+            __extends(Menu, _super);
+            function Menu(data) {
+                _super.call(this);
+                this._items = [];
+                this._menuDiv = null;
+                this._parentMenu = null;
+                if (data instanceof Array || data.data && data.data instanceof Array) {
+                    data = new tui.ArrayProvider(data);
+                } else if (typeof data === "function" || typeof data.length !== "function" || typeof data.sort !== "function" || typeof data.at !== "function" || typeof data.columnKeyMap !== "function") {
+                    throw new Error("TUI Menu: need a data provider.");
+                }
+                this._data = data;
+                var self = this;
+                this.on("close", function () {
+                    self._items = [];
+                    delete self._activedItem;
+                });
+            }
+            Menu.prototype.fireClick = function (item, row) {
+                if (item._showChildTimer)
+                    clearTimeout(item._showChildTimer);
+                if (item._childMenu && (typeof row.key === tui.undef || row.key === null)) {
+                    item._childMenu.show(item.firstChild, "rT");
+                } else {
+                    this.closeAll();
+                    if (this.fire("select", { "ctrl": self[0], "item": row }) === false) {
+                        return;
+                    }
+                    if (typeof row.key !== tui.undef && row.key !== null) {
+                        if (tui.fire(row.key, row) === false)
+                            return;
+                    }
+                    if (row.link) {
+                        window.location.href = row.link;
+                    }
+                }
+            };
+
+            Menu.prototype.bindMouseEvent = function (item, row) {
+                var self = this;
+                $(item).mousemove(function (e) {
+                    if (item["_menuIndex"] !== self._activedItem) {
+                        self.deactiveItem(self._activedItem);
+                        $(item).addClass("tui-actived");
+                        self._activedItem = item["_menuIndex"];
+                        if (item._childMenu) {
+                            item._showChildTimer = setTimeout(function () {
+                                item._childMenu.show(item.firstChild, "rT");
+                            }, 400);
+                        }
+                    }
+                });
+                $(item).mouseleave(function (e) {
+                    if (!tui.isAncestry(document.activeElement, self._menuDiv))
+                        return;
+                    if (item._showChildTimer)
+                        clearTimeout(item._showChildTimer);
+                    $(item).removeClass("tui-actived");
+                    delete self._activedItem;
+                });
+                $(item).click(function (e) {
+                    self.fireClick(item, row);
+                });
+            };
+
+            Menu.prototype.deactiveItem = function (itemIndex) {
+                if (itemIndex >= 0 && itemIndex < this._items.length) {
+                    var item = this._items[itemIndex];
+                    $(item).removeClass("tui-actived");
+                    if (item._childMenu)
+                        item._childMenu.close();
+                    if (item._showChildTimer)
+                        clearTimeout(item._showChildTimer);
+                }
+            };
+
+            Menu.prototype.setParentMenu = function (parent) {
+                this._parentMenu = parent;
+            };
+
+            Menu.prototype.closeAll = function () {
+                if (this._parentMenu) {
+                    this._parentMenu.closeAll();
+                } else
+                    this.close();
+            };
+
+            Menu.prototype.focus = function () {
+                this._menuDiv.focus();
+            };
+
+            Menu.prototype.show = function (param, bindType) {
+                if (this.isShowing())
+                    return;
+                if (!this._data)
+                    return;
+                var self = this;
+                var data;
+                if (typeof this._data === "function") {
+                    data = this._data();
+                    if (typeof data.length !== "function" || typeof data.sort !== "function" || typeof data.at !== "function" || typeof data.columnKeyMap !== "function") {
+                        return;
+                    }
+                } else
+                    data = this._data;
+                var div = document.createElement("div");
+                this._menuDiv = div;
+                div.className = Menu.CLASS;
+                $(div).attr("tabIndex", "-1");
+                for (var i = 0; i < data.length(); i++) {
+                    var row = data.at(i);
+                    var item = document.createElement("div");
+                    if (row.value === "-") {
+                        item.className = "tui-menu-line";
+                    } else {
+                        var innerBox = document.createElement("div");
+                        item.appendChild(innerBox);
+                        innerBox.innerHTML = row.value;
+                        var icon = document.createElement("i");
+                        icon.className = "tui-menu-icon";
+                        innerBox.insertBefore(icon, innerBox.firstChild);
+                        if (row.checked) {
+                            $(icon).addClass("tui-menu-icon-checked");
+                        } else if (row.icon) {
+                            $(icon).addClass(row.icon);
+                        }
+                        if (row.children) {
+                            $(item).addClass("tui-menu-has-children");
+                            var childMenu = menu(row.children);
+                            childMenu.on("select", function (data) {
+                                self.fire("select", data);
+                            });
+                            childMenu.setParentMenu(this);
+                            item["_childMenu"] = childMenu;
+                        }
+                        this.bindMouseEvent(item, row);
+                        item["_menuIndex"] = this._items.length;
+                        this._items.push(item);
+                    }
+                    div.appendChild(item);
+                }
+
+                $(div).keydown(function (e) {
+                    var c = e.keyCode;
+                    if (c === tui.KEY_DOWN || c === tui.KEY_TAB) {
+                        if (typeof self._activedItem !== "number" && self._items.length > 0) {
+                            self._activedItem = 0;
+                        } else {
+                            $(self._items[self._activedItem]).removeClass("tui-actived");
+                            self._activedItem++;
+                            if (self._activedItem > self._items.length - 1)
+                                self._activedItem = 0;
+                        }
+                        if (typeof self._activedItem === "number" && self._activedItem >= 0 && self._activedItem < self._items.length)
+                            $(self._items[self._activedItem]).addClass("tui-actived");
+                        e.stopPropagation();
+                        e.preventDefault();
+                    } else if (c === tui.KEY_UP) {
+                        if (typeof self._activedItem !== "number" && self._items.length > 0) {
+                            self._activedItem = self._items.length - 1;
+                        } else {
+                            $(self._items[self._activedItem]).removeClass("tui-actived");
+                            self._activedItem--;
+                            if (self._activedItem < 0)
+                                self._activedItem = self._items.length - 1;
+                        }
+                        if (typeof self._activedItem === "number" && self._activedItem >= 0 && self._activedItem < self._items.length)
+                            $(self._items[self._activedItem]).addClass("tui-actived");
+                        e.stopPropagation();
+                        e.preventDefault();
+                    } else if (c === tui.KEY_ESC) {
+                        self.close();
+                        e.stopPropagation();
+                        e.preventDefault();
+                    } else if (c === tui.KEY_LEFT) {
+                        if (self._parentMenu) {
+                            self.close();
+                            self._parentMenu.focus();
+                        }
+                    } else if (c === tui.KEY_RIGHT) {
+                        if (typeof self._activedItem === "number" && self._activedItem >= 0 && self._activedItem < self._items.length) {
+                            var item = self._items[self._activedItem];
+                            if (item._childMenu) {
+                                item._childMenu.show(item.firstChild, "rT");
+                            }
+                        }
+                    } else if (c === tui.KEY_ENTER) {
+                        if (typeof self._activedItem === "number" && self._activedItem >= 0 && self._activedItem < self._items.length) {
+                            var item = self._items[self._activedItem];
+                            var row = data.at(self._activedItem);
+                            self.fireClick(item, row);
+                        }
+                    }
+                });
+                _super.prototype.show.call(this, div, param, bindType);
+                div.focus();
+            };
+            Menu.CLASS = "tui-menu";
+            return Menu;
+        })(_ctrl.Popup);
+        _ctrl.Menu = Menu;
+
+        function menu(data) {
+            return new Menu(data);
+        }
+        _ctrl.menu = menu;
+    })(tui.ctrl || (tui.ctrl = {}));
+    var ctrl = tui.ctrl;
+})(tui || (tui = {}));
+var tui;
+(function (tui) {
+    /// <reference path="tui.ctrl.control.ts" />
+    (function (ctrl) {
+        /**
+        * Navbar class used to display a navigation head bar to
+        * let user easy jump to a particular functional area in the website.
+        */
+        var Navbar = (function (_super) {
+            __extends(Navbar, _super);
+            function Navbar(el) {
+                var _this = this;
+                _super.call(this, "div", Navbar.CLASS, el);
+                this._float = false;
+                this._onScroll = (function () {
+                    var self = _this;
+                    return function (e) {
+                        var pos;
+                        if (self._float === false) {
+                            pos = tui.fixedPosition(self[0]);
+                            self[0].style.left = "";
+                        } else {
+                            pos = tui.fixedPosition(self[1]);
+                            self[0].style.left = (-tui.windowScrollElement().scrollLeft) + "px";
+                        }
+                        if (pos.y < self.top() && self._float === false) {
+                            self._float = true;
+                            self[1].style.height = self[0].offsetHeight + "px";
+                            self[0].style.position = "fixed";
+                            self[0].style.left = (-tui.windowScrollElement().scrollLeft) + "px";
+                            self[0].style.right = "0px";
+                            self[0].style.top = self.top() + "px";
+                            document.body.insertBefore(self[1], self[0]);
+                        } else if (pos.y >= self.top() && self._float === true) {
+                            self._float = false;
+                            self[0].style.position = "";
+                            self[0].style.top = "";
+                            self[0].style.left = "";
+                            self[1].style.height = "";
+                            tui.removeNode(self[1]);
+                        }
+                    };
+                })();
+                this[1] = document.createElement("div");
+                this.installMonitor();
+                this._onScroll(null);
+            }
+            Navbar.prototype.installMonitor = function () {
+                $(window).scroll(this._onScroll);
+            };
+
+            Navbar.prototype.uninstallMonitor = function () {
+                $(window).off("scroll", this._onScroll);
+            };
+
+            Navbar.prototype.top = function (val) {
+                if (typeof val === "string") {
+                    this.attr("data-top", val);
+                    return this;
+                } else {
+                    val = parseInt(this.attr("data-top"));
+                    if (isNaN(val))
+                        return 0;
+                    else
+                        return val;
+                }
+            };
+            Navbar.CLASS = "tui-navbar";
+            return Navbar;
+        })(ctrl.Control);
+        ctrl.Navbar = Navbar;
+
+        function navbar(param) {
+            return tui.ctrl.control(param, Navbar);
+        }
+        ctrl.navbar = navbar;
+        tui.ctrl.registerInitCallback(Navbar.CLASS, navbar);
     })(tui.ctrl || (tui.ctrl = {}));
     var ctrl = tui.ctrl;
 })(tui || (tui = {}));
