@@ -29,8 +29,11 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -42,6 +45,7 @@ import org.thordev.webapi.validation.annotation.CollectionItemAgent;
 import org.thordev.webapi.validation.annotation.Validate;
 import org.thordev.webapi.validation.annotation.ValidateBoolean;
 import org.thordev.webapi.validation.annotation.ValidateCollection;
+import org.thordev.webapi.validation.annotation.ValidateDate;
 import org.thordev.webapi.validation.annotation.ValidateMap;
 import org.thordev.webapi.validation.annotation.ValidateNumber;
 import org.thordev.webapi.validation.annotation.ValidateString;
@@ -208,6 +212,33 @@ public class Validator {
 		}
 	}
 	
+	private Date parseDate(String dateStr) throws ParseException {
+		SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		Date result;
+		try {
+			result = formatter.parse(dateStr);
+		} catch (ParseException ex) {
+			formatter = new SimpleDateFormat("yyyy-MM-dd");
+			result = formatter.parse(dateStr);
+		}
+		return result;
+	}
+	
+	private void validateDate(Date value, ValidateDate anno) throws ValidateException {
+		if (value == null) {
+			if (!anno.allowNull())
+				throw new ValidateException("Date cannot be null!");
+		} else {
+			try {
+			if ((!anno.min().isEmpty() && value.getTime() < parseDate(anno.min()).getTime()) || 
+					(!anno.max().isEmpty() && value.getTime() > parseDate(anno.max()).getTime()))
+				throw new ValidateException("Date value range should between " + anno.min() + " and " + anno.max() + "!");
+			} catch (ParseException ex) {
+				throw new ValidateException("Specify invalid date format for min/max value", ex);
+			}
+		}
+	}
+	
 	private void validateObject(Object value, Validate anno) throws ValidateException {
 		if (value == null) {
 			if (!anno.allowNull())
@@ -330,6 +361,9 @@ public class Validator {
 			return null;
 	}
 	
+	private static boolean isDate(Class<?> type) {
+		return type.equals(Date.class);
+	}
 	private static boolean isBoolean(Class<?> type) {
 		return type.equals(boolean.class) || type.equals(Boolean.class);
 	}
@@ -347,6 +381,13 @@ public class Validator {
 	}
 	private static boolean isString(Class<?> type) {
 		return type.equals(String.class);
+	}
+	
+	private static boolean isDateOrNull(Object value) {
+		if (value == null)
+			return true;
+		else
+			return (Date.class.isInstance(value));
 	}
 	private static boolean isStringOrNull(Object value) {
 		if (value == null)
@@ -427,6 +468,13 @@ public class Validator {
 			ValidateBoolean anno = getAnnotation(annotations, ValidateBoolean.class);
 			if (anno != null)
 				validateBoolean(toBoolean(object), anno);
+		} else if (isDate(type)) {
+			if (!isDateOrNull(object))
+				throw new ValidateException("Invalid object type, need: '" + type.getName() + 
+					"', but found: '" + object.getClass().getName() + "'.");
+			ValidateDate anno = getAnnotation(annotations, ValidateDate.class);
+			if (anno != null)
+				validateDate((Date)object, anno);
 		} else if (isCollection(type)) {
 			if (!isCollectionOrNull(object))
 				throw new ValidateException("Invalid object type, need: '" + type.getName() + 

@@ -5,7 +5,6 @@
  */
 package org.thordev.webapi.utility;
 
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
@@ -127,5 +126,50 @@ public class StringUtil {
 			}
 		}
 		return result.toString();
+	}
+	
+	/**
+	 * Convert name from 'xxxYyyyZzzz' format to 'xxxx_yyyy_zzzz' format
+	 * @param name
+	 * @return 
+	 */
+	public static String toDBName(String name) {
+		StringBuilder sb = new StringBuilder();
+		for (int i = 0; i < name.length(); i++) {
+			char ch = name.charAt(i);
+			if (ch >= 'A' && ch <= 'Z') {
+				if (sb.length() > 0) {
+					sb.append('_');
+					sb.append((char)(ch + 32));
+				} else
+					sb.append((char)(ch + 32));
+			} else {
+				sb.append(ch);
+			}
+		}
+		return sb.toString();
+	}
+	
+	/**
+	 * Convert name from 'xxxx_yyyy_zzzz' format to 'xxxYyyyZzzz' format
+	 * @param name
+	 * @return 
+	 */
+	public static String fromDBName(String name) {
+		StringBuilder sb = new StringBuilder();
+		boolean upperCaseLetter = false;
+		for (int i = 0; i < name.length(); i++) {
+			char ch = name.charAt(i);
+			if (ch == '_') {
+				upperCaseLetter = true;
+			} else {
+				if (upperCaseLetter && ch >= 'a' && ch <= 'z') {
+					sb.append((char)(ch - 32));
+				} else
+					sb.append(ch);
+				upperCaseLetter = false;
+			}
+		}
+		return sb.toString();
 	}
 }

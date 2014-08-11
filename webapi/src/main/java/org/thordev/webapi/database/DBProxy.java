@@ -13,6 +13,7 @@ import org.thordev.webapi.database.DBStore.DBRef;
 import org.thordev.webapi.database.DBStore.DBSession;
 import org.thordev.webapi.database.annotation.DBInterface;
 import org.thordev.webapi.database.annotation.DBProcedure;
+import org.thordev.webapi.utility.StringUtil;
 
 /**
  *
@@ -22,23 +23,6 @@ public class DBProxy implements InvocationHandler {
 	private final DBStore store;
 	public DBProxy(DBStore store) {
 		this.store = store;
-	}
-	
-	private static String toDBName(String name) {
-		StringBuilder sb = new StringBuilder();
-		for (int i = 0; i < name.length(); i++) {
-			char ch = name.charAt(i);
-			if (ch >= 'A' && ch <= 'Z') {
-				if (sb.length() > 0) {
-					sb.append('_');
-					sb.append((char)(ch + 32));
-				} else
-					sb.append((char)(ch + 32));
-			} else {
-				sb.append(ch);
-			}
-		}
-		return sb.toString();
 	}
 	
 	@Override
@@ -54,7 +38,7 @@ public class DBProxy implements InvocationHandler {
 		if (dbProc != null) {
 			procName = dbProc.value();
 		} else {
-			procName = (prefix.isEmpty() ? "" : prefix + "_") + toDBName(method.getName());
+			procName = (prefix.isEmpty() ? "" : prefix + "_") + StringUtil.toDBName(method.getName());
 		}
 		Class<?>[] paramTypes = method.getParameterTypes();
 		try (DBSession session = store.getSession()) {

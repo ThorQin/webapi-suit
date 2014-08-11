@@ -27,8 +27,13 @@ import java.util.Map;
 public class Serializer {
 	private static final ThreadLocal<Kryo> localKryo = 
 			new ThreadLocal<>();
-	private static final Gson gson = new Gson();
-	private static final Gson gsonPrettyPrinting = new GsonBuilder().setPrettyPrinting().create();
+	private static final Gson gson = new GsonBuilder()
+			.setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+			.create();
+	private static final Gson gsonPrettyPrinting = new GsonBuilder()
+			.setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+			.setPrettyPrinting()
+			.create();
 	
 	private static interface StringConvertor {
 		void setValue(Object obj, Field field, String value) throws IllegalArgumentException, IllegalAccessException;
