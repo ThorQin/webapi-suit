@@ -522,4 +522,20 @@ public class Validator {
 			throw new ValidateException(sb.toString());
 		}
 	}
+	
+	public void validateObject(Object object, Class<?> type, final boolean allowNull) throws ValidateException {
+		validate(object, type, new Annotation[]{
+			new Validate() {
+				@Override
+				public boolean allowNull() {
+					return allowNull;
+				}
+
+				@Override
+				public Class<? extends Annotation> annotationType() {
+					return Validate.class;
+				}
+			}
+		});
+	}
 }
