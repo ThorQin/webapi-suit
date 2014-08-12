@@ -292,7 +292,7 @@ public class FileManager {
 	}
 	
 	private String getFileMIME(String ext) {
-		if (mime.containsKey(ext))
+		if (mime.containsKey(ext.toLowerCase()))
 			return mime.get(ext.toLowerCase());
 		else
 			return null;

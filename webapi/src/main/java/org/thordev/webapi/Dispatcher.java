@@ -744,6 +744,25 @@ public final class Dispatcher extends HttpServlet {
 				send(response, ex.getHttpStatus());
 			logger.log(Level.WARNING, ex.getMessage());
 			return true;
+		} catch (InvocationTargetException ex) {
+			Throwable realEx = ex.getTargetException();
+			if (HttpException.class.isInstance(realEx)) {
+				HttpException httpEx = (HttpException)realEx;
+				if (httpEx.getMessage() != null) {
+					if (httpEx.getJsonObject() != null)
+						sendJson(response, httpEx.getHttpStatus(), httpEx.getJsonObject());
+					else if (httpEx.isJsonString())
+						sendJsonString(response, httpEx.getHttpStatus(), ex.getMessage());
+					else
+						send(response, httpEx.getHttpStatus(), ex.getMessage());
+				} else
+					send(response, httpEx.getHttpStatus());
+				logger.log(Level.WARNING, httpEx.getMessage());
+			} else {
+				send(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Server error!");
+				logger.log(Level.SEVERE, "Error processing", ex);
+			}
+			return true;
 		} catch (Exception ex) {
 			send(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Server error!");
 			logger.log(Level.SEVERE, "Error processing", ex);
