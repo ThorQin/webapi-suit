@@ -14,6 +14,7 @@ import java.util.Set;
 import javax.swing.JOptionPane;
 import org.thordev.webapi.security.SecuritySetting.URLMatcher;
 import org.thordev.webapi.security.SecuritySetting.URLMatcher.RedirectionInfo;
+import org.thordev.webapi.utility.Serializer;
 import org.thordev.webapi.utility.StringUtil;
 
 /**
@@ -41,10 +42,14 @@ public class MatcherDialog extends javax.swing.JDialog {
 
 	}
 	class RedirectionModel extends MapTableModelBase<RedirectionInfo> {
+		private final Map<String, RedirectionInfo> items;
 		public RedirectionModel(Map<String, RedirectionInfo> items) {
 			super(items, new String[]{"Redirection URL", "Roles", "Users"});
+			this.items = items;
 		}
-
+		public Map<String, RedirectionInfo> getItems() {
+			return this.items;
+		}
 		@Override
 		protected Object getColValue(int columnIndex, Map.Entry<String, RedirectionInfo> entry) {
 			switch (columnIndex) {
@@ -598,7 +603,7 @@ public class MatcherDialog extends javax.swing.JDialog {
 		textOperation.setText(matcher.operation);
 		textScenario.setText(matcher.scenario);
 		sessionModel = new SessionVariableModel(matcher.sessionVariables);
-		redirectionModel = new RedirectionModel(matcher.redirection);
+		redirectionModel = new RedirectionModel(Serializer.copy(matcher.redirection));
 		tableSessionVariable.setModel(sessionModel);
 		tableRedirections.setModel(redirectionModel);
 		textMatcherName.requestFocus();
@@ -653,7 +658,7 @@ public class MatcherDialog extends javax.swing.JDialog {
 		matcher.resId = textResourceID.getText();
 		matcher.operation = textOperation.getText();
 		matcher.scenario = textScenario.getText();
-
+		matcher.redirection = redirectionModel.getItems();
 		ok = true;
 		this.dispose();
     }//GEN-LAST:event_buttonOKActionPerformed
@@ -686,13 +691,15 @@ public class MatcherDialog extends javax.swing.JDialog {
         int rowId = tableRedirections.getSelectedRow();
         if (evt.getClickCount() == 2) {
 			String k = redirectionModel.get(rowId).getKey();
-			RedirectionInfo value = matcher.redirection.get(k);			
+			RedirectionInfo value = redirectionModel.getItems().get(k);			
             RedirectionDialog dialog = new RedirectionDialog(this, true);
 			dialog.url = k;
-			dialog.info = value;
+			dialog.info = Serializer.copy(value);
+			dialog.keySet = redirectionModel.getItems().keySet();
 			dialog.setVisible(true);
             if (dialog.isOK) {
-				matcher.redirection.put(dialog.url, dialog.info);
+				redirectionModel.getItems().remove(k);
+				redirectionModel.getItems().put(dialog.url, dialog.info);
                 redirectionModel.fireTableDataChanged();
                 tableRedirections.setRowSelectionInterval(rowId, rowId);
             }

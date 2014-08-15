@@ -16,7 +16,7 @@ public class ConfigManager {
 		try {
 			javax.swing.UIManager.setLookAndFeel(winFeel);
 		} catch (Exception ex) {
-			java.util.logging.Logger.getLogger(EditorDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+			System.out.println("Can not use 'WindowsLookAndFeel'.");
 		}
 		
 		if (argc.length > 1) {

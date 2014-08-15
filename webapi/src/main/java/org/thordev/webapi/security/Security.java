@@ -220,6 +220,9 @@ public final class Security {
 								url += "?ref=" + URLEncoder.encode(path, "utf-8");
 							}
 						}
+						if (url.startsWith("/")) {
+							url = request.getContextPath() + url;
+						}
 						response.sendRedirect(url);
 					} else
 						response.sendError(HttpServletResponse.SC_FORBIDDEN);
