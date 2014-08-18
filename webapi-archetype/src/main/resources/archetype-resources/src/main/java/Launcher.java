@@ -5,9 +5,9 @@ package ${package};
 
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
-import org.thordev.webapi.WebLauncher;
-import org.thordev.webapi.annotation.UseDispatcher;
-import org.thordev.webapi.annotation.UseSecurity;
+import com.github.thorqin.webapi.WebLauncher;
+import com.github.thorqin.webapi.annotation.UseDispatcher;
+import com.github.thorqin.webapi.annotation.UseSecurity;
 
 @UseDispatcher(
 	value="/api/*", 

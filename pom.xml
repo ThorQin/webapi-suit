@@ -8,7 +8,7 @@
 		<downloadJavadocs>true</downloadJavadocs>
     </properties>
 
-	<groupId>org.thordev</groupId>
+	<groupId>com.github.thorqin</groupId>
 	<artifactId>webapi-suit</artifactId>
 	<version>1.0-SNAPSHOT</version>
 	<packaging>pom</packaging>
@@ -18,6 +18,10 @@
 		<module>webapi</module>
 		<module>webapi-archetype</module>
     </modules>
+	<scm>
+		<url>https://github.com/ThorQin/webapi-suit</url>
+		<connection>scm:git:https://github.com/ThorQin/webapi-suit.git</connection>
+	</scm>
 	
 	<distributionManagement> 
 		<repository> 

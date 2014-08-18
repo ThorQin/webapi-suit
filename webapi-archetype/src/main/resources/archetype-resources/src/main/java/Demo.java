@@ -11,9 +11,9 @@ package ${package};
 
 
 import java.util.Date;
-import org.thordev.webapi.annotation.WebEntry;
-import static org.thordev.webapi.annotation.WebEntry.HttpMethod.GET;
-import org.thordev.webapi.annotation.WebModule;
+import com.github.thorqin.webapi.annotation.WebEntry;
+import static com.github.thorqin.webapi.annotation.WebEntry.HttpMethod.GET;
+import com.github.thorqin.webapi.annotation.WebModule;
 
 
 @WebModule(path="/api")
