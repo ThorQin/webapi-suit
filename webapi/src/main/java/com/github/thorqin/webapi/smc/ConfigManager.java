@@ -1,7 +1,6 @@
 package com.github.thorqin.webapi.smc;
 
 import java.awt.Image;
-import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 
 /**
@@ -9,7 +8,6 @@ import javax.swing.ImageIcon;
  * @author nuo.qin
  */
 public class ConfigManager {
-	private static final Logger logger = Logger.getLogger(ConfigManager.class.getName());
 	
 	public static void main(final String[] argc) {
 		String winFeel = "com.sun.java.swing.plaf.windows.WindowsLookAndFeel";

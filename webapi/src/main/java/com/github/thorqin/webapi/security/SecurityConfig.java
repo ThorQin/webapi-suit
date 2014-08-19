@@ -22,6 +22,7 @@ public class SecurityConfig extends JsonConfig {
 		public Object db;
 		public Object amq;
 		public Object mail;
+		public Object router;
 	}
 	@Override
 	public SecuritySetting get() {

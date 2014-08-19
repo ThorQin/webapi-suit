@@ -162,4 +162,5 @@ public class SecuritySetting {
 	public boolean clientSession = true;
 	public String amqConfig;
 	public String dbConfig;
+	public boolean trace = false;
 }
