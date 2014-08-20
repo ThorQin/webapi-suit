@@ -21,7 +21,11 @@ import com.github.thorqin.webapi.database.annotation.DBInstance;
 import com.github.thorqin.webapi.database.annotation.DBInterface;
 import com.github.thorqin.webapi.mail.MailService;
 import com.github.thorqin.webapi.mail.annotation.MailInstance;
+import com.github.thorqin.webapi.monitor.MonitorService;
+import com.github.thorqin.webapi.monitor.RequestInfo;
 import com.github.thorqin.webapi.security.ClientSession;
+import com.github.thorqin.webapi.security.Security;
+import com.github.thorqin.webapi.security.Security.LoginInfo;
 import com.github.thorqin.webapi.utility.JsonConfig;
 import com.github.thorqin.webapi.utility.RuleMatcher;
 import com.github.thorqin.webapi.utility.Serializer;
@@ -73,24 +77,7 @@ public final class Dispatcher extends HttpServlet {
 
 	private static final long serialVersionUID = -4658671798328062327L;
 	private static final Logger logger = Logger.getLogger(Dispatcher.class.getName());
-	private static final Logger tracerLogger;
 	private DispatcherSetting.RouterInfo routerInfo;
-	
-	static {
-		tracerLogger = Logger.getLogger(Dispatcher.class.getName() + ".tracer");
-		try {
-			String logDir = Dispatcher.class.getResource("/").getPath() + "logs/";
-			Files.createDirectories(new File(logDir).toPath());
-			FileHandler handler = new FileHandler(logDir+"dispatcher%u.log", true);
-			handler.setLevel(Level.INFO);
-			handler.setEncoding("utf-8");
-			handler.setFormatter(new SimpleFormatter());
-			tracerLogger.setUseParentHandlers(false);
-			tracerLogger.addHandler(new ConsoleHandler());
-			tracerLogger.addHandler(handler);
-		} catch (Exception ex) {
-		}
-	}
 	
 	protected class MappingInfo {
 		public Object instance;
@@ -113,11 +100,6 @@ public final class Dispatcher extends HttpServlet {
 	
 	public Dispatcher() {
 		super();
-		try {
-			routerInfo = ((DispatcherSetting)(new JsonConfig("web.config", true, DispatcherSetting.class).get())).router;
-		} catch (IOException ex) {
-			routerInfo = new DispatcherSetting.RouterInfo();
-		}
 	}
 	
 	public static synchronized MailService getMailService(String configName) throws IOException {
@@ -187,7 +169,14 @@ public final class Dispatcher extends HttpServlet {
 	@Override
 	public void init(ServletConfig config) throws ServletException {
 		super.init(config);
-		
+		try {
+			routerInfo = ((DispatcherSetting)(new JsonConfig("web.config", true, DispatcherSetting.class).get())).router;
+		} catch (IOException ex) {
+			routerInfo = new DispatcherSetting.RouterInfo();
+		}
+		if (routerInfo.trace) {
+			MonitorService.addRef();
+		}
 		if (mapping == null) {
 			try {
 				makeApiMapping(config.getServletContext());
@@ -254,6 +243,9 @@ public final class Dispatcher extends HttpServlet {
 				}
 			}
 			cleanups.clear();
+		}
+		if (routerInfo.trace) {
+			MonitorService.release();
 		}
 		super.destroy();
 	}
@@ -686,18 +678,11 @@ public final class Dispatcher extends HttpServlet {
 		}
 		String key = httpMethod + ":" + requestPath;
 		MappingInfo info = mapping.match(key);
-		StringBuilder tracer = null;
-		long beginTime = 0;
-		if (routerInfo.trace) {
-			tracer = new StringBuilder();
-			tracer.append(key).append("\n");
-			tracer.append("HANDLER: ").append(info.instance.getClass().getName())
-					.append("::").append(info.method.getName()).append("\n");
-			beginTime = System.currentTimeMillis();
-		}
 		if (info == null) {
 			return false;
 		}
+		// Handler has been found then route the input request to appropriate routine to do a further processing.
+		long beginTime = System.currentTimeMillis();
 		try {
 			MethodRuntimeInfo mInfo = new MethodRuntimeInfo();
 			mInfo.request = request;
@@ -731,10 +716,6 @@ public final class Dispatcher extends HttpServlet {
 				mInfo.postType = RequestPostType.UNKNOW;
 			if (mInfo.postType != RequestPostType.UNKNOW)
 				mInfo.httpBody = readHttpBody(request);
-			if (routerInfo.trace && mInfo.httpBody != null) {
-				tracer.append("BODY:\n------\n")
-						.append(mInfo.httpBody).append("\n");
-			}
 			// Obtain Client Session From Cookie
 			mInfo.clientSession = ClientSession.fromCookie(request, response);
 			if (mInfo.clientSession != null) {
@@ -767,24 +748,10 @@ public final class Dispatcher extends HttpServlet {
 					!info.method.getReturnType().equals(void.class) && 
 					(entryAnno != null && entryAnno.toJson() || result != null)) {
 				sendJson(response, result);
-				if (routerInfo.trace) {
-					tracer.append("HTTP STATUS: ").append(response.getStatus()).append("\n")
-							.append("RESPONSE:\n---------\n")
-							.append(Serializer.toJsonString(result))
-							.append("\n");
-				}
-			} else {
-				if (routerInfo.trace) {
-					tracer.append("HTTP STATUS: ").append(response.getStatus()).append("\n");
-				}
 			}
 			return true;
 		} catch (ValidateException ex) {
 			send(response, HttpServletResponse.SC_BAD_REQUEST, "Bad request: invalid parameters!");
-			if (routerInfo.trace) {
-				tracer.append("HTTP STATUS(cause by ValidateException): ")
-					.append(HttpServletResponse.SC_BAD_REQUEST).append("\n");
-			}
 			logger.log(Level.WARNING, "Bad request: {0}", ex.getMessage());
 			return true;
 		} catch (HttpException ex) {
@@ -797,10 +764,6 @@ public final class Dispatcher extends HttpServlet {
 					send(response, ex.getHttpStatus(), ex.getMessage());
 			} else
 				send(response, ex.getHttpStatus());
-			if (routerInfo.trace) {
-				tracer.append("HTTP STATUS(cause by HttpException): ")
-					.append(ex.getHttpStatus()).append("\n");
-			}
 			logger.log(Level.WARNING, ex.getMessage());
 			return true;
 		} catch (InvocationTargetException ex) {
@@ -821,25 +784,16 @@ public final class Dispatcher extends HttpServlet {
 				send(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Server error!");
 				logger.log(Level.SEVERE, "Error processing", ex);
 			}
-			if (routerInfo.trace) {
-				tracer.append("HTTP STATUS(cause by InvocationTargetException): ")
-					.append(HttpServletResponse.SC_INTERNAL_SERVER_ERROR).append("\n");
-			}
 			return true;
 		} catch (Exception ex) {
 			send(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Server error!");
-			if (routerInfo.trace) {
-				tracer.append("HTTP STATUS(cause by Unknow Exception): ")
-					.append(HttpServletResponse.SC_INTERNAL_SERVER_ERROR).append("\n");
-			}
 			logger.log(Level.SEVERE, "Error processing", ex);
 			return true;
 		} finally {
 			if (routerInfo.trace) {
-				long endTime = System.currentTimeMillis();
-				tracer.append("PROCESS TIME: ")
-						.append(endTime - beginTime).append("(ms)\n\n");
-				tracerLogger.log(Level.INFO, tracer.toString()); 
+				RequestInfo reqInfo = MonitorService.buildRequestInfo(
+						request, response, "Dispatcher", beginTime);
+				MonitorService.instance().record(reqInfo);
 			}
 		}
 	}

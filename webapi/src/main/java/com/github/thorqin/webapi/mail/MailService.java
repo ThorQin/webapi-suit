@@ -71,14 +71,18 @@ public class MailService {
 	private void doSendMail(Mail mail) {
 		Properties props = new Properties();
 		Session session;
-		props.put("mail.smtp.auth", "true");
+		props.put("mail.smtp.auth", String.valueOf(serverConfig.useAuthentication()));
+		props.put("mail.debug", "true");
 		props.put("mail.smtp.host", serverConfig.getHost());
 		if (serverConfig.getPort() != null) {
 			props.put("mail.smtp.port", serverConfig.getPort());
 		}
 		if (serverConfig.getSecure().equals(MailConfig.SECURE_STARTTLS)) {
 			props.put("mail.smtp.starttls.enable", "true");
-			session = Session.getInstance(props,
+			if (!serverConfig.useAuthentication())
+				session = Session.getInstance(props);
+			else
+				session = Session.getInstance(props,
 					new javax.mail.Authenticator() {
 						@Override
 						protected PasswordAuthentication getPasswordAuthentication() {
@@ -89,7 +93,10 @@ public class MailService {
 			props.put("mail.smtp.socketFactory.port", serverConfig.getPort());
 			props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
 			props.put("mail.smtp.socketFactory.fallback", "false");
-			session = Session.getInstance(props,
+			if (!serverConfig.useAuthentication())
+				session = Session.getInstance(props);
+			else
+				session = Session.getInstance(props,
 					new javax.mail.Authenticator() {
 						@Override
 						protected PasswordAuthentication getPasswordAuthentication() {
@@ -97,7 +104,10 @@ public class MailService {
 						}
 					});
 		} else {
-			session = Session.getInstance(props,
+			if (!serverConfig.useAuthentication())
+				session = Session.getInstance(props);
+			else
+				session = Session.getInstance(props,
 					new javax.mail.Authenticator() {
 						@Override
 						protected PasswordAuthentication getPasswordAuthentication() {

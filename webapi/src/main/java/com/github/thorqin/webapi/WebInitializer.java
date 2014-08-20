@@ -23,6 +23,11 @@
  */
 package com.github.thorqin.webapi;
 
+import com.github.thorqin.webapi.annotation.Order;
+import com.github.thorqin.webapi.annotation.UseDispatcher;
+import com.github.thorqin.webapi.annotation.UseSecurity;
+import com.github.thorqin.webapi.monitor.MonitorService;
+import com.github.thorqin.webapi.security.SecurityFilter;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedList;
@@ -35,10 +40,6 @@ import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRegistration;
 import javax.servlet.annotation.HandlesTypes;
-import com.github.thorqin.webapi.annotation.Order;
-import com.github.thorqin.webapi.annotation.UseDispatcher;
-import com.github.thorqin.webapi.annotation.UseSecurity;
-import com.github.thorqin.webapi.security.SecurityFilter;
 
 
 class OrderComparetor<T> implements Comparator<T> {
@@ -86,7 +87,7 @@ public class WebInitializer implements ServletContainerInitializer {
 				}
 			}
 		}
-
+		
 		if (initializers.isEmpty()) {
 			ctx.log("No WebApplication types detected on classpath");
 		} else {

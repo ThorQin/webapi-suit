@@ -22,6 +22,7 @@ public class MailConfig extends JsonConfig {
 
 	public static class MailSetting {
 		public static class MailSettingItem {
+			public boolean auth = true;
 			public String host;
 			public int port = 25;
 			public String user;
@@ -71,5 +72,9 @@ public class MailConfig extends JsonConfig {
 
 	public String getSecure() {
 		return getInstance().secure;
+	}
+	
+	public boolean useAuthentication() {
+		return getInstance().auth;
 	}
 }

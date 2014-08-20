@@ -6,6 +6,8 @@
 
 package com.github.thorqin.webapi.security;
 
+import com.github.thorqin.webapi.monitor.MonitorService;
+import com.github.thorqin.webapi.monitor.RequestInfo;
 import java.io.IOException;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -27,6 +29,7 @@ public class SecurityFilter implements Filter {
 	@Override
 	public void init(FilterConfig filterConfig) throws ServletException {
 		boolean remoteSync = Boolean.getBoolean(filterConfig.getInitParameter("remoteSync"));
+		MonitorService.addRef();
 		try {
 			security = Security.getInstance(remoteSync);
 		} catch (Exception ex) {
@@ -36,13 +39,20 @@ public class SecurityFilter implements Filter {
 
 	@Override
 	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
+		long beginTime = System.currentTimeMillis();
 		if (security.checkPermission((HttpServletRequest)request, (HttpServletResponse)response))
 			chain.doFilter(request, response);
+		if (security.getSetting().trace) {
+			RequestInfo reqInfo = MonitorService.buildRequestInfo((HttpServletRequest)request, 
+					(HttpServletResponse)response, "Security Manager", beginTime);
+			MonitorService.instance().record(reqInfo);
+		}
 	}
 
 	@Override
 	public void destroy() {
 		security.close();
+		MonitorService.release();
 	}
 	
 }

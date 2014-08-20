@@ -43,11 +43,6 @@ import static com.github.thorqin.webapi.security.SecuritySetting.RuleAction.allo
 import static com.github.thorqin.webapi.security.SecuritySetting.RuleAction.deny;
 import com.github.thorqin.webapi.security.SecuritySetting.URLMatcher.RedirectionInfo;
 import com.github.thorqin.webapi.utility.Serializer;
-import java.io.File;
-import java.nio.file.Files;
-import java.util.logging.ConsoleHandler;
-import java.util.logging.FileHandler;
-import java.util.logging.SimpleFormatter;
 
 
 /**
@@ -56,31 +51,11 @@ import java.util.logging.SimpleFormatter;
  */
 public final class Security {
 	private static final Logger logger = Logger.getLogger(Security.class.getName());
-	private static final Logger tracerLogger;
-	
 	private static Security instance = null;
-	
 	private final SecurityConfig config;
 	private final boolean syncFromRemote;
-	
 	private AMQ amq;
 	private AMQ.AsyncReceiver receiver;
-	
-	static {
-		tracerLogger = Logger.getLogger(Security.class.getName() + ".security");
-		try {
-			String logDir = Security.class.getResource("/").getPath() + "logs/";
-			Files.createDirectories(new File(logDir).toPath());
-			FileHandler handler = new FileHandler(logDir+"security%u.log", true);
-			handler.setLevel(Level.INFO);
-			handler.setEncoding("utf-8");
-			handler.setFormatter(new SimpleFormatter());
-			tracerLogger.setUseParentHandlers(false);
-			tracerLogger.addHandler(new ConsoleHandler());
-			tracerLogger.addHandler(handler);
-		} catch (Exception ex) {
-		}
-	}
 	
 	private final AMQ.MessageHandler handler = new AMQ.MessageHandler () {
 		@Override
@@ -168,6 +143,10 @@ public final class Security {
 		}
 	}
 	
+	public SecuritySetting getSetting() {
+		return config.get();
+	}
+	
 	public static class CheckPermissionResult {
 		public boolean allow;
 		public String ruleName;
@@ -220,74 +199,44 @@ public final class Security {
 		String path = servletPath + (pathInfo == null ? "" : pathInfo) +
 				(queryString == null ? "" : "?" + queryString);
 		
-		SecuritySetting setting = config.get();
-		StringBuilder tracer = null;
-		if (setting.trace) {
-			tracer = new StringBuilder();
-			tracer.append(request.getMethod().toUpperCase())
-					.append(":").append(path).append("\n");
-			tracer.append("USER: ").append(user).append("\n")
-					.append("ROLE: ").append(role).append("\n");
-		}
-		try {
-			MappingInfo info = mappingURL(path, 
-					request.getScheme().toLowerCase(), request.getServerName().toLowerCase(), 
-					request.getMethod().toLowerCase(), request.getServerPort(), session);
-			CheckPermissionResult result = checkPermission(info, user, role);
-			if (result.allow) {
-				if (setting.trace) {
-					tracer.append("ACTION: allowed!\n");
-				}
-				return true;
-			} else {
-				try {
-					if (info.redirection != null) {
-						RedirectionURL redirectUrl = info.getRedirectionUrl(role, user);
-						if (redirectUrl != null) {
-							String url = redirectUrl.url;
-							if (redirectUrl.setReference) {
-								if (url.contains("?")) {
-									url += "&ref=" + URLEncoder.encode(path, "utf-8");
-								} else {
-									url += "?ref=" + URLEncoder.encode(path, "utf-8");
-								}
+		MappingInfo info = mappingURL(path, 
+				request.getScheme().toLowerCase(), request.getServerName().toLowerCase(), 
+				request.getMethod().toLowerCase(), request.getServerPort(), session);
+		CheckPermissionResult result = checkPermission(info, user, role);
+		if (result.allow) {
+			return true;
+		} else {
+			try {
+				if (info.redirection != null) {
+					RedirectionURL redirectUrl = info.getRedirectionUrl(role, user);
+					if (redirectUrl != null) {
+						String url = redirectUrl.url;
+						if (redirectUrl.setReference) {
+							if (url.contains("?")) {
+								url += "&ref=" + URLEncoder.encode(path, "utf-8");
+							} else {
+								url += "?ref=" + URLEncoder.encode(path, "utf-8");
 							}
-							if (url.startsWith("$")) {
-								url = request.getContextPath() + url.substring(1);
-							}
-							if (setting.trace) {
-								tracer.append("ACTION: redirect to: ").append(url).append("\n");
-							}
-							response.sendRedirect(url);
-						} else {
-							if (setting.trace) {
-								tracer.append("ACTION: forbidden!!!").append("\n");
-							}
-							response.sendError(HttpServletResponse.SC_FORBIDDEN);
 						}
+						if (url.startsWith("$")) {
+							url = request.getContextPath() + url.substring(1);
+						}
+
+						response.sendRedirect(url);
 					} else {
-						if (setting.trace) {
-							tracer.append("ACTION: forbidden!!!").append("\n");
-						}
 						response.sendError(HttpServletResponse.SC_FORBIDDEN);
 					}
-				} catch (IOException ex) {
-					if (setting.trace) {
-						tracer.append("ACTION: check permission error!!!").append("\n");
-					}
-					logger.log(Level.SEVERE, "Send response failed.", ex);
-					try {
-						response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-					} catch (Exception e) {
-					}
+				} else {
+					response.sendError(HttpServletResponse.SC_FORBIDDEN);
 				}
-				return false;
+			} catch (IOException ex) {
+				logger.log(Level.SEVERE, "Send response failed.", ex);
+				try {
+					response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+				} catch (Exception e) {
+				}
 			}
-		} finally {
-			if (setting.trace) {
-				tracer.append("\n");
-				tracerLogger.log(Level.INFO, tracer.toString()); 
-			}
+			return false;
 		}
 	}
 	
@@ -360,6 +309,29 @@ public final class Security {
 					info.operation = parameters.get("operation");
 				return info;
 			}
+		}
+		return info;
+	}
+	
+	public static class LoginInfo {
+		public String user = null;
+		public String role = null;
+	}
+	
+	public static LoginInfo getLoginInfo(HttpServletRequest request, HttpServletResponse response) {
+		LoginInfo info = new LoginInfo();
+		SecuritySetting setting = instance.config.get();
+		HttpSession session;
+		if (setting.clientSession) {
+			session = ClientSession.fromCookie(request, response);
+			if (session != null && !((ClientSession)session).isExpired()) {
+				info.user = (String)session.getAttribute("user");
+				info.role = (String)session.getAttribute("role");
+			}
+		} else {
+			session = request.getSession();
+			info.user = (String)session.getAttribute("user");
+			info.role = (String)session.getAttribute("role");
 		}
 		return info;
 	}
