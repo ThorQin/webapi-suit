@@ -865,8 +865,8 @@ public final class Dispatcher extends HttpServlet {
 		response.setHeader("Pragma", "no-cache");
 		response.setHeader("Cache-Control", "no-store");
 		response.setDateHeader("Expires", 0);
-		try {
-			response.getOutputStream().print(message);
+		try (Writer w = response.getWriter();) {
+			w.write(message);
 		} catch (IOException ex) {
 			logger.log(Level.SEVERE, "Send message to client failed!", ex);
 		}
@@ -883,8 +883,8 @@ public final class Dispatcher extends HttpServlet {
 		response.setHeader("Pragma", "no-cache");
 		response.setHeader("Cache-Control", "no-store");
 		response.setDateHeader("Expires", 0);
-		try {
-			response.getOutputStream().print(jsonString);
+		try (Writer w = response.getWriter();) {
+			w.write(jsonString);
 		} catch (IOException ex) {
 			logger.log(Level.SEVERE, "Send message to client failed!", ex);
 		}
@@ -908,10 +908,8 @@ public final class Dispatcher extends HttpServlet {
 		response.setHeader("Pragma", "no-cache");
 		response.setHeader("Cache-Control", "no-store");
 		response.setDateHeader("Expires", 0);
-		try {
-			Writer w = response.getWriter();
+		try (Writer w = response.getWriter();){
 			Serializer.toJson(obj, w);
-			w.flush();
 		} catch (IOException ex) {
 			logger.log(Level.SEVERE, "Send message to client failed!", ex);
 		}
