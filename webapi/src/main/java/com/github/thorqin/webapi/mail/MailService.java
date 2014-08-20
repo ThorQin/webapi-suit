@@ -166,10 +166,8 @@ public class MailService {
 			message.setContent(multipart);
 			message.saveChanges();
 			Transport transport = session.getTransport("smtp");
-			transport.connect(serverConfig.getHost(), 
-					serverConfig.getPort(), 
-					serverConfig.getUsername(), 
-					serverConfig.getPassword());
+			transport.connect();
+				
 			transport.sendMessage(message, message.getAllRecipients());
 			transport.close();
 			logger.log(Level.INFO, "Mail sent: {0}", mailTo.toString());
