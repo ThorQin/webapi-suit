@@ -8,6 +8,7 @@ import com.github.thorqin.webapi.database.DBConfig.DBSetting.DBSettingItem;
 public class DBConfig extends JsonConfig {
 	public static class DBSetting {
 		public static class DBSettingItem {
+			public boolean trace = false;
 			public String driver;
 			public String uri;
 			public String user;
@@ -35,6 +36,10 @@ public class DBConfig extends JsonConfig {
 	private DBSettingItem getInstance() {
 		DBSetting setting = (DBSetting)this.configInstance;
 		return setting.db.get(configName);
+	}
+	
+	public boolean enableTrace() {
+		return getInstance().trace;
 	}
 	
 	public String getDBDriver() {

@@ -19,7 +19,8 @@ import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.ConfigurationException;
 import com.github.thorqin.webapi.utility.Serializer;
 
-public class AMQ {	
+public class AMQ {
+	private boolean enableTrace = false;
 	private Connection connection = null;
 	private String defaultAddress = null;
 	private boolean defaultBroadcast = false;
@@ -716,6 +717,7 @@ public class AMQ {
 		String password = config.getActiveMQPassword();
 		String defAddress = config.getDefaultAddress();
 		boolean defBroadcast = config.getDefaultBroadcast();
+		this.enableTrace = config.enableTrace();
 		init(uri, user, password, defAddress, defBroadcast);
 	}
 	private void init(String uri, String user, String password, String defaultAddress, boolean defaultBroadcast) throws ConfigurationException, JMSException {
@@ -730,6 +732,10 @@ public class AMQ {
 	    connection.start();
 		this.defaultAddress = defaultAddress;
 		this.defaultBroadcast = defaultBroadcast;
+	}
+	
+	public boolean enableTrace() {
+		return enableTrace;
 	}
 	
 	public void stop() {

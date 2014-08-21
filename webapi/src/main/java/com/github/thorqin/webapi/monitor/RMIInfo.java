@@ -10,6 +10,9 @@ package com.github.thorqin.webapi.monitor;
  *
  * @author nuo.qin
  */
-public interface MonitorHandler {
-	public void requestProcessed(RequestInfo info);
+public class RMIInfo {
+	public String address;
+	public String method;
+	public long startTime;
+	public long runningTime;
 }

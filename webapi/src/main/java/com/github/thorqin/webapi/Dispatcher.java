@@ -24,8 +24,6 @@ import com.github.thorqin.webapi.mail.annotation.MailInstance;
 import com.github.thorqin.webapi.monitor.MonitorService;
 import com.github.thorqin.webapi.monitor.RequestInfo;
 import com.github.thorqin.webapi.security.ClientSession;
-import com.github.thorqin.webapi.security.Security;
-import com.github.thorqin.webapi.security.Security.LoginInfo;
 import com.github.thorqin.webapi.utility.JsonConfig;
 import com.github.thorqin.webapi.utility.RuleMatcher;
 import com.github.thorqin.webapi.utility.Serializer;
@@ -46,7 +44,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.nio.file.Files;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -54,11 +51,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.ConsoleHandler;
-import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javassist.bytecode.AnnotationsAttribute;
@@ -134,7 +128,6 @@ public final class Dispatcher extends HttpServlet {
 		}
 	}
 	
-	
 	@SuppressWarnings("unchecked")
 	public static synchronized <T> T getAMQProxy(String configName, Class<T> interfaceType) throws JMSException, IOException {
 		String key = configName + ":" + interfaceType.getName();
@@ -174,9 +167,7 @@ public final class Dispatcher extends HttpServlet {
 		} catch (IOException ex) {
 			routerInfo = new DispatcherSetting.RouterInfo();
 		}
-		if (routerInfo.trace) {
-			MonitorService.addRef();
-		}
+		MonitorService.addRef();
 		if (mapping == null) {
 			try {
 				makeApiMapping(config.getServletContext());
@@ -244,9 +235,7 @@ public final class Dispatcher extends HttpServlet {
 			}
 			cleanups.clear();
 		}
-		if (routerInfo.trace) {
-			MonitorService.release();
-		}
+		MonitorService.release();
 		super.destroy();
 	}
 
@@ -793,7 +782,7 @@ public final class Dispatcher extends HttpServlet {
 			if (routerInfo.trace) {
 				RequestInfo reqInfo = MonitorService.buildRequestInfo(
 						request, response, "Dispatcher", beginTime);
-				MonitorService.instance().record(reqInfo);
+				MonitorService.record(reqInfo);
 			}
 		}
 	}

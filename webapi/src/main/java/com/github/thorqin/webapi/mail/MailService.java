@@ -6,6 +6,8 @@
 
 package com.github.thorqin.webapi.mail;
 
+import com.github.thorqin.webapi.monitor.MailInfo;
+import com.github.thorqin.webapi.monitor.MonitorService;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -69,6 +71,7 @@ public class MailService {
 	}
 	
 	private void doSendMail(Mail mail) {
+		long beginTime = System.currentTimeMillis();
 		Properties props = new Properties();
 		Session session;
 		props.put("mail.smtp.auth", String.valueOf(serverConfig.useAuthentication()));
@@ -170,7 +173,17 @@ public class MailService {
 				
 			transport.sendMessage(message, message.getAllRecipients());
 			transport.close();
-			logger.log(Level.INFO, "Mail sent: {0}", mailTo.toString());
+			if (serverConfig.enableTrace()) {
+				MailInfo info = new MailInfo();
+				info.recipients = mail.to;
+				info.sender = mail.from;
+				info.smtpServer = serverConfig.getHost();
+				info.smtpUser = serverConfig.getUsername();
+				info.subject = mail.subject;
+				info.startTime = beginTime;
+				info.runningTime = System.currentTimeMillis() - beginTime;
+				MonitorService.record(info);
+			}
 		} catch (Exception ex) {
 			logger.log(Level.SEVERE, "Send mail failed!", ex);
 		}

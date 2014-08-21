@@ -15,6 +15,7 @@ import java.util.logging.Logger;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+
 /**
  *
  * @author nuo.qin
@@ -24,15 +25,11 @@ public class MonitorService {
 	private boolean alive = false;
 	private Thread sendThread = null;
 	private static final Logger logger = Logger.getLogger(MonitorService.class.getName());
-	private final LinkedBlockingQueue<RequestInfo> monitorQueue = new LinkedBlockingQueue<>();
+	private final LinkedBlockingQueue<Object> monitorQueue = new LinkedBlockingQueue<>();
 	private final RequestInfo stopSignal = new RequestInfo();
 	private static final MonitorService inst = new MonitorService();
 	private long refcount = 0;
-	private final List<MonitorHandler> handlers = new LinkedList<>();
-	
-	public static MonitorService instance() {
-		return inst;
-	}
+	private final List<Monitor> monitors = new LinkedList<>();
 	
 	private void start() {
 		if (alive)
@@ -43,14 +40,14 @@ public class MonitorService {
 			public void run() {
 				System.out.println("Monitor service started!");
 				while (alive) {
-					RequestInfo reqInfo = null;
+					Object info = null;
 					try {
-						reqInfo = monitorQueue.take();
+						info = monitorQueue.take();
 					} catch (InterruptedException e) {
 					}
 					try {
-						if (reqInfo != stopSignal)
-							doNotify(reqInfo);
+						if (info != stopSignal)
+							doNotify(info);
 						else if (!alive)
 							break;
 					} catch (Exception ex) {
@@ -75,15 +72,50 @@ public class MonitorService {
 		System.out.println("Monitor service stopped!!");
 	}
 	
-	private void doNotify(RequestInfo reqInfo) {
-		for (MonitorHandler h: handlers) {
-			h.requestProcessed(reqInfo);
+	private void doNotify(Object info) {
+		if (info == null)
+			return;
+		if (info.getClass().equals(RequestInfo.class)) {
+			for (Monitor h: monitors) {
+				if (h instanceof RequestMonitor)
+					((RequestMonitor)h).requestProcessed((RequestInfo)info);
+			}
+		} else if (info.getClass().equals(MailInfo.class)) {
+			for (Monitor h: monitors) {
+				if (h instanceof MailMonitor)
+					((MailMonitor)h).mailSent((MailInfo)info);
+			}
+		} else if (info.getClass().equals(StatementInfo.class)) {
+			for (Monitor h: monitors) {
+				if (h instanceof DBMonitor)
+					((DBMonitor)h).statementExecuted((StatementInfo)info);
+			}
+		} else if (info.getClass().equals(RMIInfo.class)) {
+			for (Monitor h: monitors) {
+				if (h instanceof RMIMonitor)
+					((RMIMonitor)h).methodInvoked((RMIInfo)info);
+			}
 		}
 	}
 	
-	public void record(RequestInfo reqInfo) {
-		if (monitorQueue != null && alive)
-			monitorQueue.offer(reqInfo);
+	public static void record(RequestInfo reqInfo) {
+		if (inst.monitorQueue != null && inst.alive)
+			inst.monitorQueue.offer(reqInfo);
+	}
+	
+	public static void record(MailInfo mailInfo) {
+		if (inst.monitorQueue != null && inst.alive)
+			inst.monitorQueue.offer(mailInfo);
+	}
+	
+	public static void record(StatementInfo sqlInfo) {
+		if (inst.monitorQueue != null && inst.alive)
+			inst.monitorQueue.offer(sqlInfo);
+	}
+	
+	public static void record(RMIInfo rmiInfo) {
+		if (inst.monitorQueue != null && inst.alive)
+			inst.monitorQueue.offer(rmiInfo);
 	}
 	
 	public static RequestInfo buildRequestInfo(HttpServletRequest request, 
@@ -108,16 +140,16 @@ public class MonitorService {
 		return reqInfo;
 	}
 	
-	public void addHandler(MonitorHandler handler) {
-		for (MonitorHandler h : handlers) {
-			if (h.equals(handler))
+	public static void addMonitor(Monitor monitor) {
+		for (Monitor h : inst.monitors) {
+			if (h.equals(monitor))
 				return;
 		}
-		handlers.add(handler);
+		inst.monitors.add(monitor);
 	}
 	
-	public void removeHandler(MonitorHandler handler) {
-		handlers.remove(handler);
+	public static void removeMonitor(Monitor monitor) {
+		inst.monitors.remove(monitor);
 	}
 
 	private synchronized void internalIncreaseRef() {
@@ -133,10 +165,10 @@ public class MonitorService {
 	}
 	
 	public static void addRef() {
-		instance().internalIncreaseRef();
+		inst.internalIncreaseRef();
 	}
 	
 	public static void release() {
-		instance().internalDecreaseRef();
+		inst.internalDecreaseRef();
 	}
 }

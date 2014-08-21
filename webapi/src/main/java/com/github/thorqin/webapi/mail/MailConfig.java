@@ -22,6 +22,7 @@ public class MailConfig extends JsonConfig {
 
 	public static class MailSetting {
 		public static class MailSettingItem {
+			public boolean trace = false;
 			public boolean auth = true;
 			public String host;
 			public int port = 25;
@@ -48,6 +49,10 @@ public class MailConfig extends JsonConfig {
 	private MailSettingItem getInstance() {
 		MailSetting setting = (MailSetting)this.configInstance;
 		return setting.mail.get(configName);
+	}
+	
+	public boolean enableTrace() {
+		return getInstance().trace;
 	}
 	
 	public String getHost() {

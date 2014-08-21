@@ -14,6 +14,7 @@ import com.github.thorqin.webapi.amq.AMQConfig.AMQSetting.AMQSettingItem;
 public class AMQConfig extends JsonConfig {
 	public static class AMQSetting {
 		public static class AMQSettingItem {
+			public boolean trace = false;
 			public String uri;
 			public String user;
 			public String password;
@@ -35,6 +36,10 @@ public class AMQConfig extends JsonConfig {
 	private AMQSettingItem getInstance() {
 		AMQSetting setting = (AMQSetting)this.configInstance;
 		return setting.amq.get(configName);
+	}
+	
+	public boolean enableTrace() {
+		return getInstance().trace;
 	}
 	
 	public String getActiveMQUri() {

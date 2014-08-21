@@ -45,7 +45,7 @@ public class SecurityFilter implements Filter {
 		if (security.getSetting().trace) {
 			RequestInfo reqInfo = MonitorService.buildRequestInfo((HttpServletRequest)request, 
 					(HttpServletResponse)response, "Security Manager", beginTime);
-			MonitorService.instance().record(reqInfo);
+			MonitorService.record(reqInfo);
 		}
 	}
 

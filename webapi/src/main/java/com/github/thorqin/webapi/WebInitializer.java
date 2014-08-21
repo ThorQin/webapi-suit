@@ -26,7 +26,6 @@ package com.github.thorqin.webapi;
 import com.github.thorqin.webapi.annotation.Order;
 import com.github.thorqin.webapi.annotation.UseDispatcher;
 import com.github.thorqin.webapi.annotation.UseSecurity;
-import com.github.thorqin.webapi.monitor.MonitorService;
 import com.github.thorqin.webapi.security.SecurityFilter;
 import java.util.Collections;
 import java.util.Comparator;
@@ -87,7 +86,7 @@ public class WebInitializer implements ServletContainerInitializer {
 				}
 			}
 		}
-		
+
 		if (initializers.isEmpty()) {
 			ctx.log("No WebApplication types detected on classpath");
 		} else {

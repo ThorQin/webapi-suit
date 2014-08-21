@@ -1,5 +1,7 @@
 package com.github.thorqin.webapi.database;
 
+import com.github.thorqin.webapi.monitor.MonitorService;
+import com.github.thorqin.webapi.monitor.StatementInfo;
 import com.jolbox.bonecp.BoneCPDataSource;
 import java.io.IOException;
 import java.lang.annotation.ElementType;
@@ -547,11 +549,13 @@ public class DBStore {
 	final private BoneCPDataSource boneCP = new BoneCPDataSource();
 	final private String dbDriver;
 	final private String dbURI;
+	final private boolean enableTrace;
 	
 	public DBStore(String profileName) throws SQLException, IOException {
 		this.profileName = profileName;
 		DBConfig dbConfig = new DBConfig(profileName);
 		dbDriver = dbConfig.getDBDriver();
+		this.enableTrace = dbConfig.enableTrace();
 		if (dbDriver != null) {
 			boneCP.setDriverClass(dbDriver);
 		}
@@ -590,9 +594,11 @@ public class DBStore {
 	}
 	
 	public static class DBSession implements AutoCloseable {
-		private Connection conn = null;
-		public DBSession(Connection conn) {
+		private final Connection conn;
+		private final boolean enableTrace;
+		public DBSession(Connection conn, boolean enableTrace) {
 			this.conn = conn;
+			this.enableTrace = enableTrace;
 		}
 		public void setAutoCommit(boolean autoCommit) throws SQLException {
 			conn.setAutoCommit(autoCommit);
@@ -743,9 +749,24 @@ public class DBStore {
 			return execute(queryString, null);
 		}
 		public int execute(String queryString, Object[] args) throws SQLException {
+			long beginTime = System.currentTimeMillis();
+			boolean success = true;
 			try (PreparedStatement stmt = conn.prepareStatement(queryString)){
 				bindParameter(stmt, args, 1);
 				return stmt.executeUpdate();
+			} catch (Exception ex) {
+				success = false;
+				throw ex;
+			} finally {
+				if (enableTrace) {
+					StatementInfo sqlInfo = new StatementInfo();
+					sqlInfo.execType = "execute";
+					sqlInfo.statement = queryString;
+					sqlInfo.success = success;
+					sqlInfo.startTime = beginTime;
+					sqlInfo.runningTime = System.currentTimeMillis() - beginTime;
+					MonitorService.record(sqlInfo);
+				}
 			}
 		}
 		public DBCursor query(String queryString) throws SQLException {
@@ -760,10 +781,25 @@ public class DBStore {
 		public DBCursor query(String queryString,
 				Map<String, Class<?>> udtMapping,
 				Object[] args) throws SQLException {
+			long beginTime = System.currentTimeMillis();
+			boolean success = true;
 			try (PreparedStatement stmt = conn.prepareStatement(queryString)) {
 				bindParameter(stmt, args, 1);
 				ResultSet rs = stmt.executeQuery();
 				return new DBCursor(rs);
+			} catch (Exception ex) {
+				success = false;
+				throw ex;
+			} finally {
+				if (enableTrace) {
+					StatementInfo sqlInfo = new StatementInfo();
+					sqlInfo.execType = "query";
+					sqlInfo.statement = queryString;
+					sqlInfo.success = success;
+					sqlInfo.startTime = beginTime;
+					sqlInfo.runningTime = System.currentTimeMillis() - beginTime;
+					MonitorService.record(sqlInfo);
+				}
 			}
 		}
 		public void query(String queryString, DBResultHanlder handler)
@@ -772,11 +808,26 @@ public class DBStore {
 		}
 
 		public void query(String queryString, DBResultHanlder handler, Object[] args) throws Exception {
+			long beginTime = System.currentTimeMillis();
+			boolean success = true;			
 			try (PreparedStatement stmt = conn.prepareStatement(queryString)) {
 				bindParameter(stmt, args, 1);
 				try (ResultSet rs = stmt.executeQuery()) {
 					if (handler != null)
 						handler.handle(rs);
+				}
+			} catch (Exception ex) {
+				success = false;
+				throw ex;
+			} finally {
+				if (enableTrace) {
+					StatementInfo sqlInfo = new StatementInfo();
+					sqlInfo.execType = "query";
+					sqlInfo.statement = queryString;
+					sqlInfo.success = success;
+					sqlInfo.startTime = beginTime;
+					sqlInfo.runningTime = System.currentTimeMillis() - beginTime;
+					MonitorService.record(sqlInfo);
 				}
 			}
 		}
@@ -790,6 +841,8 @@ public class DBStore {
 		@SuppressWarnings({ "unchecked", "rawtypes" })
 		public <T> T invoke(String procName, Class<T> returnType, Map<String, Class<?>> udtMapping,
 				Object[] args) throws SQLException {
+			long beginTime = System.currentTimeMillis();
+			boolean success = true;		
 			StringBuilder sqlString = new StringBuilder();
 			sqlString.append("{?=call ").append(procName).append("(");
 			if (args != null) {
@@ -823,6 +876,19 @@ public class DBStore {
 					return (T)cursor.getTable();
 				} else
 					return (T)fromSqlObject(stmt.getObject(1), udtMapping);
+			} catch (Exception ex) {
+				success = false;
+				throw ex;
+			} finally {
+				if (enableTrace) {
+					StatementInfo sqlInfo = new StatementInfo();
+					sqlInfo.execType = "invoke";
+					sqlInfo.statement = sqlString.toString();
+					sqlInfo.success = success;
+					sqlInfo.startTime = beginTime;
+					sqlInfo.runningTime = System.currentTimeMillis() - beginTime;
+					MonitorService.record(sqlInfo);
+				}
 			}
 		}
 		public void perform(String procName) throws SQLException {
@@ -834,6 +900,8 @@ public class DBStore {
 		@SuppressWarnings({ "rawtypes", "unchecked" })
 		public void perform(String procName, Map<String, Class<?>> udtMapping, Object[] args) 
 				throws SQLException {
+			long beginTime = System.currentTimeMillis();
+			boolean success = true;			
 			StringBuilder sqlString = new StringBuilder();
 			sqlString.append("{call ").append(procName).append("(");
 			if (args != null) {
@@ -860,6 +928,19 @@ public class DBStore {
 							}
 						}
 					}
+				}
+			} catch (Exception ex) {
+				success = false;
+				throw ex;
+			} finally {
+				if (enableTrace) {
+					StatementInfo sqlInfo = new StatementInfo();
+					sqlInfo.execType = "perform";
+					sqlInfo.statement = sqlString.toString();
+					sqlInfo.success = success;
+					sqlInfo.startTime = beginTime;
+					sqlInfo.runningTime = System.currentTimeMillis() - beginTime;
+					MonitorService.record(sqlInfo);
 				}
 			}
 		}
@@ -897,7 +978,7 @@ public class DBStore {
 			return null;
 	}
 	public DBSession getSession() throws SQLException {
-		return new DBSession(getConnection());
+		return new DBSession(getConnection(), enableTrace);
 	}
 	public Connection getConnection() throws SQLException {
 		return boneCP.getConnection();
