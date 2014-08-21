@@ -75,7 +75,8 @@ public class MailService {
 		Properties props = new Properties();
 		Session session;
 		props.put("mail.smtp.auth", String.valueOf(serverConfig.useAuthentication()));
-		props.put("mail.debug", "true");
+		// If want to display SMTP protocol detail then uncomment following statement
+		// props.put("mail.debug", "true");
 		props.put("mail.smtp.host", serverConfig.getHost());
 		if (serverConfig.getPort() != null) {
 			props.put("mail.smtp.port", serverConfig.getPort());
