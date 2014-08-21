@@ -80,10 +80,10 @@ public class StringUtil {
 		}
 		return result.toString();
 	}
-	public static String join(String[] array) {
+	public static String join(Object[] array) {
 		return join(array, ",");
 	}
-	public static String join(String[] array, String delimiter) {
+	public static String join(Object[] array, String delimiter) {
 		if (array == null)
 			return "";
 		// Cache the length of the delimiter
@@ -101,14 +101,14 @@ public class StringUtil {
 			if (array[0] == null) {
 				return "";
 			}
-			return array[0];
+			return array[0].toString();
 		}
 		// Make a pass through and determine the size
 		// of the resulting string.
 		int length = 0;
 		for (int i = 0; i < array.length; i++) {
 			if (array[i] != null) {
-				length += array[i].length();
+				length += array[i].toString().length();
 			}
 			if (i < array.length - 1) {
 				length += delimiterLength;
@@ -119,7 +119,7 @@ public class StringUtil {
 		StringBuilder result = new StringBuilder(length);
 		for (int i = 0; i < array.length; i++) {
 			if (array[i] != null) {
-				result.append(array[i]);
+				result.append(array[i].toString());
 			}
 			if (i < array.length - 1) {
 				result.append(delimiter);

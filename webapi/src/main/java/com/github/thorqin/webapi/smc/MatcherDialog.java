@@ -24,10 +24,14 @@ import com.github.thorqin.webapi.utility.StringUtil;
 public class MatcherDialog extends javax.swing.JDialog {
 	
 	class SessionVariableModel extends MapTableModelBase<Set<String>> {
+		private final Map<String, Set<String>> items;
 		public SessionVariableModel(Map<String, Set<String>> items) {
 			super(items, new String[]{"Session Variable", "Value Should Contained"});
+			this.items = items;
 		}
-
+		public Map<String, Set<String>> getItems() {
+			return this.items;
+		}
 		@Override
 		protected String getColValue(int columnIndex, Map.Entry<String, Set<String>> entry) {
 			switch (columnIndex) {
@@ -602,7 +606,7 @@ public class MatcherDialog extends javax.swing.JDialog {
 		textResourceID.setText(matcher.resId);
 		textOperation.setText(matcher.operation);
 		textScenario.setText(matcher.scenario);
-		sessionModel = new SessionVariableModel(matcher.sessionVariables);
+		sessionModel = new SessionVariableModel(Serializer.copy(matcher.sessionVariables));
 		redirectionModel = new RedirectionModel(Serializer.copy(matcher.redirection));
 		tableSessionVariable.setModel(sessionModel);
 		tableRedirections.setModel(redirectionModel);
@@ -658,6 +662,7 @@ public class MatcherDialog extends javax.swing.JDialog {
 		matcher.resId = textResourceID.getText();
 		matcher.operation = textOperation.getText();
 		matcher.scenario = textScenario.getText();
+		matcher.sessionVariables = sessionModel.getItems();
 		matcher.redirection = redirectionModel.getItems();
 		ok = true;
 		this.dispose();
@@ -672,7 +677,7 @@ public class MatcherDialog extends javax.swing.JDialog {
 		dialog.keySet = matcher.redirection.keySet();
 		dialog.setVisible(true);
         if (dialog.isOK) {
-			matcher.redirection.put(dialog.url, dialog.info);
+			redirectionModel.getItems().put(dialog.url, dialog.info);
             redirectionModel.fireTableDataChanged();
         }
     }//GEN-LAST:event_buttonAddMatcherActionPerformed
@@ -683,7 +688,7 @@ public class MatcherDialog extends javax.swing.JDialog {
 			removed.add(redirectionModel.get(rownum).getKey());
         }
 		for (String k: removed)
-			matcher.redirection.remove(k);
+			redirectionModel.getItems().remove(k);
         redirectionModel.fireTableDataChanged();
     }//GEN-LAST:event_buttonDeleteMatcherActionPerformed
 
@@ -708,10 +713,10 @@ public class MatcherDialog extends javax.swing.JDialog {
 
     private void buttonAddSessionVariableActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonAddSessionVariableActionPerformed
         KeyValueDialog dialog = new KeyValueDialog(this, true);
-		dialog.nameSet = matcher.sessionVariables.keySet();
+		dialog.nameSet = sessionModel.getItems().keySet();
 		dialog.setVisible(true);
         if (dialog.isOK()) {
-			matcher.sessionVariables.put(dialog.name, StringUtil.toStringSet(dialog.value, ","));
+			sessionModel.getItems().put(dialog.name, StringUtil.toStringSet(dialog.value, ","));
             sessionModel.fireTableDataChanged();
         }
     }//GEN-LAST:event_buttonAddSessionVariableActionPerformed
@@ -722,7 +727,7 @@ public class MatcherDialog extends javax.swing.JDialog {
 			removed.add(sessionModel.get(rownum).getKey());
         }
 		for (String k: removed)
-			matcher.sessionVariables.remove(k);
+			sessionModel.getItems().remove(k);
         sessionModel.fireTableDataChanged();
     }//GEN-LAST:event_buttonDeleteSessionVariableActionPerformed
 
@@ -730,11 +735,11 @@ public class MatcherDialog extends javax.swing.JDialog {
         int rowId = tableSessionVariable.getSelectedRow();
         if (evt.getClickCount() == 2) {
 			String k = sessionModel.get(rowId).getKey();
-			String value = StringUtil.join(matcher.sessionVariables.get(k));			
+			String value = StringUtil.join(sessionModel.getItems().get(k));			
             KeyValueDialog dialog = new KeyValueDialog(this, true);
-            dialog.doEdit(k, value, matcher.sessionVariables.keySet());
+            dialog.doEdit(k, value, sessionModel.getItems().keySet());
             if (dialog.isOK()) {
-				matcher.sessionVariables.put(dialog.name, StringUtil.toStringSet(dialog.value, ","));
+				sessionModel.getItems().put(dialog.name, StringUtil.toStringSet(dialog.value, ","));
                 sessionModel.fireTableDataChanged();
                 tableSessionVariable.setRowSelectionInterval(rowId, rowId);
             }

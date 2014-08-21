@@ -8,6 +8,7 @@ package com.github.thorqin.webapi.mail;
 
 import com.github.thorqin.webapi.monitor.MailInfo;
 import com.github.thorqin.webapi.monitor.MonitorService;
+import com.github.thorqin.webapi.utility.StringUtil;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -177,7 +178,7 @@ public class MailService {
 			if (serverConfig.enableTrace()) {
 				MailInfo info = new MailInfo();
 				info.recipients = mail.to;
-				info.sender = mail.from;
+				info.sender = StringUtil.join(message.getFrom());
 				info.smtpServer = serverConfig.getHost();
 				info.smtpUser = serverConfig.getUsername();
 				info.subject = mail.subject;

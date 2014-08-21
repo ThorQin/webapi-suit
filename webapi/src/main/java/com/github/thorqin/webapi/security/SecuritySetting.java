@@ -84,7 +84,8 @@ public class SecuritySetting {
 			}
 			for (String key : sessionVariables.keySet()) {
 				Set<String> values = sessionVariables.get(key);
-				String value = session.getAttribute(key).toString();
+				Object sv = session.getAttribute(key);
+				String value = (sv == null? null : sv.toString());
 				if (value == null)
 					return false;
 				if (!values.contains(value))
