@@ -82,9 +82,12 @@ public class SecuritySetting {
 			if (!(this.port == null || this.port.isEmpty() || this.port.contains(String.valueOf(port)))) {
 				return false;
 			}
+			
 			for (String key : sessionVariables.keySet()) {
 				Set<String> values = sessionVariables.get(key);
-				Object sv = session.getAttribute(key);
+				Object sv = null;
+				if (session != null)
+					sv = session.getAttribute(key);
 				String value = (sv == null? null : sv.toString());
 				if (value == null)
 					return false;
