@@ -35,5 +35,14 @@
         <include>**/*.ssi</include>
       </includes>
     </fileSet>
+    <fileSet filtered="true" encoding="UTF-8">
+      <directory></directory>
+      <includes>
+        <include>nbactions.xml</include>
+		<include>jetty-run.launch</include>
+		<include>web-config.launch</include>
+		<include>package.launch</include>
+      </includes>
+    </fileSet>	
   </fileSets>
 </archetype-descriptor>
