@@ -183,14 +183,58 @@ if (typeof Array.prototype.indexOf !== "function") {
 
 var tui;
 (function (tui) {
+    tui.KEY_BACK = 8;
     tui.KEY_TAB = 9;
     tui.KEY_ENTER = 13;
+    tui.KEY_SHIFT = 16;
+    tui.KEY_CTRL = 17;
+    tui.KEY_ALT = 18;
+    tui.KEY_PAUSE = 19;
+    tui.KEY_CAPS = 20;
     tui.KEY_ESC = 27;
     tui.KEY_SPACE = 32;
+    tui.KEY_PRIOR = 33;
+    tui.KEY_NEXT = 34;
+    tui.KEY_END = 35;
+    tui.KEY_HOME = 36;
     tui.KEY_LEFT = 37;
     tui.KEY_UP = 38;
     tui.KEY_RIGHT = 39;
     tui.KEY_DOWN = 40;
+    tui.KEY_PRINT = 44;
+    tui.KEY_INSERT = 45;
+    tui.KEY_DELETE = 46;
+    tui.CONTROL_KEYS = {
+        9: "Tab",
+        13: "Enter",
+        16: "Shift",
+        17: "Ctrl",
+        18: "Alt",
+        19: "Pause",
+        20: "Caps",
+        27: "Escape",
+        33: "Prior",
+        34: "Next",
+        35: "End",
+        36: "Home",
+        37: "Left",
+        38: "Up",
+        39: "Right",
+        40: "Down",
+        45: "Insert",
+        112: "F1",
+        113: "F2",
+        114: "F3",
+        115: "F4",
+        116: "F5",
+        117: "F6",
+        118: "F7",
+        119: "F8",
+        120: "F9",
+        121: "F10",
+        122: "F11",
+        123: "F12"
+    };
 
     tui.undef = (function (undefined) {
         return typeof undefined;
@@ -1920,7 +1964,7 @@ var tui;
                     response = doc.body.innerHTML;
                     if (settings.responseType && settings.responseType.toLowerCase() === 'json') {
                         if (doc.body.firstChild && doc.body.firstChild.nodeName.toUpperCase() === 'PRE') {
-                            doc.normalize();
+                            doc.normalize && doc.normalize();
                             response = doc.body.firstChild.firstChild.nodeValue;
                         }
                         if (response) {
@@ -3383,9 +3427,10 @@ var tui;
                 var self = this;
 
                 function openMenu() {
+                    var pos = self.menuPos();
                     if (self.isMenu()) {
                         var menu = tui.ctrl.menu(self._data);
-                        menu.show(self[0], "Lb");
+                        menu.show(self[0], pos || "Lb");
                         menu.on("select", function (data) {
                             self.fire("select", data);
                         });
@@ -3463,7 +3508,7 @@ var tui;
 
                     list[0].style.width = listWidth + "px";
                     list.data(self._data);
-                    pop.show(list[0], self[0], "Rb");
+                    pop.show(list[0], self[0], pos || "Rb");
 
                     var items = self._data ? self._data.length() : 0;
                     if (items < 1)
@@ -3592,6 +3637,14 @@ var tui;
                     return this;
                 } else
                     return this.attr("data-menu-bind");
+            };
+
+            Button.prototype.menuPos = function (val) {
+                if (typeof val !== tui.undef) {
+                    this.attr("data-menu-pos", val);
+                    return this;
+                } else
+                    return this.attr("data-menu-pos");
             };
 
             Button.prototype.columnKey = function (key) {
@@ -4363,6 +4416,7 @@ var tui;
                 this._childPopup = null;
                 this._checkInterval = null;
                 this._showing = false;
+                this._owner = null;
             }
             Popup.prototype.getParentPopup = function (elem) {
                 var pop = _currentPopup;
@@ -4377,6 +4431,14 @@ var tui;
 
             Popup.prototype.isShowing = function () {
                 return this._showing;
+            };
+
+            Popup.prototype.owner = function (elem) {
+                if (elem) {
+                    this._owner = elem;
+                    return this;
+                } else
+                    return this._owner;
             };
 
             Popup.prototype.show = function (content, param, bindType) {
@@ -4411,11 +4473,16 @@ var tui;
                         closeAllPopup();
                         this._parent = this._body;
                     }
-                    this._parent.appendChild(elem);
-                    elem.focus();
 
                     _currentPopup = this;
                     elem.setAttribute("tabIndex", "-1");
+
+                    this._parent.appendChild(elem);
+                    if (this.owner())
+                        this.owner().focus();
+                    else
+                        elem.focus();
+
                     if (typeof content === "string") {
                         elem.innerHTML = content;
                     } else if (content && content.nodeName) {
@@ -4556,7 +4623,7 @@ var tui;
             setTimeout(function () {
                 var obj = document.activeElement;
                 while (_currentPopup) {
-                    if (_currentPopup.isPosterity(obj))
+                    if (_currentPopup.isPosterity(obj) || _currentPopup.owner() === obj)
                         return;
                     else
                         _currentPopup.close();
@@ -4592,7 +4659,7 @@ var tui;
         _mask.className = "tui-dialog-mask";
         _mask.setAttribute("unselectable", "on");
         var mousewheelevt = (/Firefox/i.test(navigator.userAgent)) ? "DOMMouseScroll" : "mousewheel";
-        $(_mask).on(mousewheelevt, function (ev) {
+        $(_mask).on(mousewheelevt + " selectstart", function (ev) {
             ev.stopPropagation();
             ev.preventDefault();
         });
@@ -4640,6 +4707,9 @@ var tui;
                 this._titleText = null;
                 this._noRefresh = false;
                 this._useEsc = true;
+                this._sizeTimer = null;
+                this._originScrollHeight = null;
+                this._originScrollWidth = null;
             }
             /**
             * Show HTML content
@@ -4783,6 +4853,13 @@ var tui;
                 this.refresh();
                 this[0].focus();
                 this.fire("open");
+                this._sizeTimer = setInterval(function () {
+                    if (self._contentDiv.scrollHeight !== self._originScrollHeight || self._contentDiv.scrollWidth !== self._originScrollWidth) {
+                        self.refresh();
+                        self._originScrollHeight = self._contentDiv.scrollHeight;
+                        self._originScrollWidth = self._contentDiv.scrollWidth;
+                    }
+                }, 100);
                 return this;
             };
 
@@ -4792,7 +4869,8 @@ var tui;
                     _this._contentDiv.style.maxHeight = "";
                     _this[0].style.maxWidth = _mask.offsetWidth + "px";
                     _this[0].style.maxHeight = _mask.offsetHeight + "px";
-                    _this._contentDiv.style.maxHeight = _this[0].clientHeight - _this._titleDiv.offsetHeight - _this._buttonDiv.offsetHeight - $(_this._contentDiv).outerHeight() + $(_this._contentDiv).height() + "px";
+                    _this._contentDiv.style.maxHeight = _mask.offsetHeight - _this._titleDiv.offsetHeight - _this._buttonDiv.offsetHeight - $(_this._contentDiv).outerHeight() + $(_this._contentDiv).height() + "px";
+                    _this._contentDiv.style.maxWidth = _mask.offsetWidth - $(_this._contentDiv).outerWidth() + $(_this._contentDiv).width() + "px";
                     _this.refresh();
                 }, 0);
             };
@@ -4877,6 +4955,7 @@ var tui;
             Dialog.prototype.close = function () {
                 if (!this[0])
                     return;
+                clearInterval(this._sizeTimer);
                 remove(this);
                 this.elem(null);
                 this._titleDiv = null;
@@ -5055,12 +5134,22 @@ var tui;
     }
     tui.askbox = askbox;
 
-    function waitbox(message) {
+    function waitbox(message, cancelProc) {
+        if (typeof cancelProc === "undefined") { cancelProc = null; }
         var dlg = tui.ctrl.dialog();
         var wrap = document.createElement("div");
         wrap.className = "tui-dlg-warp tui-dlg-wait";
         wrap.innerHTML = message;
-        dlg.showElement(wrap, null, []);
+        if (typeof cancelProc === "function")
+            dlg.showElement(wrap, null, [{
+                    name: tui.str("Cancel"), func: function () {
+                        dlg.close();
+                        cancelProc();
+                    }
+                }]);
+        else {
+            dlg.showElement(wrap, null, []);
+        }
         dlg.useesc(false);
         return dlg;
     }
@@ -5274,8 +5363,9 @@ var tui;
                         pos = beginLeft + diff;
                     }
                     self.value(self.posToValue(pos));
-                    if (oldValue !== self.value())
+                    if (oldValue !== self.value()) {
                         self.fire("scroll", { value: self.value(), type: "drag" });
+                    }
                 }
 
                 function dragEnd(e) {
@@ -5783,7 +5873,6 @@ var tui;
     (function (ctrl) {
         var Grid = (function (_super) {
             __extends(Grid, _super);
-            //private _initInterval = null;
             function Grid(el) {
                 _super.call(this, "div", Grid.CLASS, el);
                 this._tableId = tui.uuid();
@@ -5807,6 +5896,8 @@ var tui;
                 //private _columnKeyMap: {} = null;
                 this._noRefresh = false;
                 this._initialized = false;
+                //private _initInterval = null;
+                this._drawingTimer = null;
                 var self = this;
 
                 this.attr("tabIndex", "0");
@@ -5831,8 +5922,20 @@ var tui;
                 this[0].appendChild(this._space);
 
                 this._vscroll.on("scroll", function (data) {
+                    var diff = Math.abs(data["value"] - self._scrollTop);
                     self._scrollTop = data["value"];
-                    self.drawLines();
+                    if (diff < 3 * self._lineHeight && self._drawingTimer === null) {
+                        self.drawLines();
+                    } else {
+                        self.drawLines(true);
+                        if (self._drawingTimer !== null)
+                            clearTimeout(self._drawingTimer);
+                        self._drawingTimer = setTimeout(function () {
+                            self.clearBufferLines();
+                            self.drawLines();
+                            self._drawingTimer = null;
+                        }, 40);
+                    }
                 });
                 this._hscroll.on("scroll", function (data) {
                     self._scrollLeft = data["value"];
@@ -5958,6 +6061,17 @@ var tui;
                         e.stopPropagation();
                         if (tui.ieVer > 0)
                             self[0].setActive();
+                    } else if (k === tui.KEY_TAB) {
+                        if ((e.target || e.srcElement) === self[0]) {
+                            var rowIndex;
+                            if (self.rowselectable()) {
+                                rowIndex = self.activerow();
+                            } else {
+                                rowIndex = self._bufferedBegin;
+                            }
+                            if (self.editRow(rowIndex))
+                                e.preventDefault();
+                        }
                     }
                 });
                 var predefined = this.attr("data-data");
@@ -6108,41 +6222,73 @@ var tui;
                     }
                 } else {
                     var totalNoBorderWidth = this._contentWidth - this._borderWidth * cols;
-                    var totalNoImportantWidth = totalNoBorderWidth;
+                    totalNoBorderWidth += (vScrollbarWidth === 0 ? 1 : 0);
+                    var totalNoFixedWidth = totalNoBorderWidth;
                     var totalNeedComputed = 0;
+                    var totalNeedComputedCount = 0;
                     var totalImportantWidth = 0;
                     var important = [];
+
+                    for (var i = 0; i < columns.length; i++) {
+                        if (columns[i]["fixed"]) {
+                            if (typeof columns[i].width !== "number" || isNaN(columns[i].width))
+                                columns[i].width = defaultWidth;
+                            totalNoFixedWidth -= columns[i].width;
+                        }
+                    }
+                    if (totalNoFixedWidth < 0)
+                        totalNoFixedWidth = 0;
+                    var totalNoImportantWidth = totalNoFixedWidth;
+
                     for (var i = 0; i < columns.length; i++) {
                         if (typeof columns[i].width !== "number" || isNaN(columns[i].width))
                             columns[i].width = defaultWidth;
                         else if (columns[i].width < 0)
                             columns[i].width = 0;
-                        if (columns[i]["_important"] || (columns[i]["fixed"] && typeof columns[i].width === "number")) {
+                        if (columns[i]["fixed"]) {
+                            // Ignore
+                        } else if (columns[i]["_important"]) {
                             important.push(i);
                             delete columns[i]["_important"];
                             columns[i].width = Math.round(columns[i].width);
-                            if (columns[i].width > totalNoBorderWidth - totalImportantWidth) {
-                                columns[i].width = totalNoBorderWidth - totalImportantWidth;
+                            if (columns[i].width > totalNoFixedWidth) {
+                                columns[i].width = totalNoFixedWidth;
                             }
                             totalImportantWidth += columns[i].width;
                             totalNoImportantWidth -= columns[i].width;
-                        } else
+                        } else {
                             totalNeedComputed += Math.round(columns[i].width);
+                            totalNeedComputedCount++;
+                        }
                     }
-                    for (var i = 0; i < columns.length; i++) {
-                        if (important.indexOf(i) < 0) {
-                            if (totalNeedComputed === 0)
-                                columns[i].width = 0;
-                            else
-                                columns[i].width = Math.floor(Math.round(columns[i].width) / totalNeedComputed * totalNoImportantWidth);
+                    if (totalNeedComputedCount > 0 && totalNeedComputed === 0) {
+                        for (var i = 0; i < columns.length; i++) {
+                            if (important.indexOf(i) < 0 && !columns[i]["fixed"]) {
+                                columns[i].width = Math.floor(totalNoImportantWidth / totalNeedComputedCount);
+                            }
+                        }
+                    } else {
+                        for (var i = 0; i < columns.length; i++) {
+                            if (important.indexOf(i) < 0 && !columns[i]["fixed"]) {
+                                if (totalNeedComputed === 0)
+                                    columns[i].width = 0; // To avoid divide by zero
+                                else
+                                    columns[i].width = Math.floor(Math.round(columns[i].width) / totalNeedComputed * totalNoImportantWidth);
+                            }
                         }
                     }
                     var total = 0;
                     for (var i = 0; i < columns.length; i++) {
                         total += columns[i].width;
                     }
-                    if (total < totalNoBorderWidth && columns.length > 0)
-                        columns[columns.length - 1].width += totalNoBorderWidth - total;
+                    if (total < totalNoBorderWidth && columns.length > 0) {
+                        for (var i = 0; i < columns.length; i++) {
+                            if (!columns[i].fixed) {
+                                columns[i].width += totalNoBorderWidth - total;
+                                break;
+                            }
+                        }
+                    }
                 }
                 var cssText = "";
                 for (var i = 0; i < columns.length; i++) {
@@ -6238,7 +6384,7 @@ var tui;
                     if (["center", "left", "right"].indexOf(col.headAlign) >= 0)
                         cell.style.textAlign = col.headAlign;
                 }
-                if (value === null) {
+                if (value === null || typeof value === tui.undef) {
                     contentSpan.innerHTML = "";
                 } else if (typeof value === "object" && value.nodeName) {
                     contentSpan.innerHTML = "";
@@ -6308,8 +6454,9 @@ var tui;
                 return this._selectrows.indexOf(rowIndex) >= 0;
             };
 
-            Grid.prototype.drawLine = function (line, index, bindEvent) {
+            Grid.prototype.drawLine = function (line, index, bindEvent, empty) {
                 if (typeof bindEvent === "undefined") { bindEvent = false; }
+                if (typeof empty === "undefined") { empty = false; }
                 var self = this;
                 var columns = this.myColumns();
                 var data = this.myData();
@@ -6328,15 +6475,17 @@ var tui;
                         line.appendChild(cell);
                     }
                 }
-                var rowData = data.at(index);
-                for (var i = 0; i < line.childNodes.length; i++) {
-                    var cell = line.childNodes[i];
-                    var col = columns[i];
-                    var key = null;
-                    if (typeof col.key !== tui.undef)
-                        key = data.mapKey(col.key);
-                    var value = (key !== null && rowData ? rowData[key] : "");
-                    this.drawCell(cell, cell.firstChild, col, key, value, rowData, index, i);
+                if (!empty) {
+                    var rowData = data.at(index);
+                    for (var i = 0; i < line.childNodes.length; i++) {
+                        var cell = line.childNodes[i];
+                        var col = columns[i];
+                        var key = null;
+                        if (typeof col.key !== tui.undef)
+                            key = data.mapKey(col.key);
+                        var value = (key !== null && rowData ? rowData[key] : "");
+                        this.drawCell(cell, cell.firstChild, col, key, value, rowData, index, i);
+                    }
                 }
 
                 if (!bindEvent)
@@ -6372,7 +6521,8 @@ var tui;
                 line.style.left = -this._scrollLeft + "px";
             };
 
-            Grid.prototype.drawLines = function () {
+            Grid.prototype.drawLines = function (empty) {
+                if (typeof empty === "undefined") { empty = false; }
                 this._headline.style.left = -this._scrollLeft + "px";
                 var base = this.headHeight() - this._scrollTop % this._lineHeight;
                 var begin = Math.floor(this._scrollTop / this._lineHeight);
@@ -6390,7 +6540,7 @@ var tui;
                         this[0].insertBefore(line, this._headline);
                         newBuffer.push(line);
                         line["_rowIndex"] = i;
-                        this.drawLine(line, i, true);
+                        this.drawLine(line, i, true, empty);
                         this.moveLine(line, i - begin, base);
                     }
                     if (this.isRowSelected(i)) {
@@ -6643,6 +6793,37 @@ var tui;
                 }
             };
 
+            Grid.prototype.editCell = function (rowIndex, colIndex) {
+                if (typeof rowIndex !== "number" || rowIndex < 0 || rowIndex >= this.myData().length())
+                    return false;
+                if (typeof colIndex !== "number" || colIndex < 0 || colIndex >= this.columns().length)
+                    return false;
+                if (this.rowselectable()) {
+                    this.activerow(rowIndex);
+                }
+                this.scrollTo(rowIndex);
+                var line = this._bufferedLines[rowIndex - this._bufferedBegin];
+                var cell = line.childNodes[colIndex];
+                if (cell.childNodes[1] && cell.childNodes[1]["_ctrl"]) {
+                    cell.childNodes[1]["_ctrl"].focus();
+                    return true;
+                } else if (cell.childNodes[0] && cell.childNodes[0].childNodes[0] && cell.childNodes[0].childNodes[0]["_ctrl"]) {
+                    cell.childNodes[0].childNodes[0]["_ctrl"].focus();
+                    return true;
+                } else
+                    return false;
+            };
+
+            Grid.prototype.editRow = function (rowIndex) {
+                if (typeof rowIndex !== "number" || rowIndex < 0 || rowIndex >= this.myData().length())
+                    return false;
+                for (var i = 0; i < this._columns.length; i++) {
+                    if (this.editCell(rowIndex, i))
+                        return true;
+                }
+                return false;
+            };
+
             Grid.prototype.resizable = function (val) {
                 if (typeof val === "boolean") {
                     this.is("data-resizable", val);
@@ -6735,57 +6916,59 @@ var tui;
             };
 
             /// Following static methods are used for cell formatting.
-            Grid.textEditor = function (whenDoubleClick) {
-                if (typeof whenDoubleClick === "undefined") { whenDoubleClick = true; }
+            Grid.menu = function (itemMenu, func, menuPos) {
+                if (typeof menuPos === "undefined") { menuPos = "Rb"; }
                 return function (data) {
                     if (data.rowIndex < 0)
                         return;
-                    var eventName = (whenDoubleClick ? "dblclick" : "mousedown");
-                    $(data.cell.firstChild).on(eventName, function (e) {
-                        if (!tui.isLButton(e.button))
-                            return;
-                        data.grid.scrollTo(data.rowIndex);
-                        var txtBox = document.createElement("input");
-                        txtBox.className = "tui-grid-text-editor";
-                        txtBox.style.width = $(data.cell).innerWidth() - 16 + "px";
-                        txtBox.style.height = $(data.cell).innerHeight() + "px";
-                        txtBox.value = data.value;
-                        $(txtBox).mousedown(function (e) {
-                            e.stopPropagation();
-                            e.stopImmediatePropagation();
-                        });
-                        $(txtBox).change(function (e) {
-                            if (typeof data.colKey !== tui.undef)
-                                data.row[data.colKey] = txtBox.value;
-                            data.cell.firstChild.innerHTML = txtBox.value;
-                            data.value = txtBox.value;
-                        });
-                        function finishEdit() {
-                            tui.removeNode(txtBox);
-                            if (typeof data.colKey !== tui.undef)
-                                data.row[data.colKey] = txtBox.value;
-                            data.cell.firstChild.innerHTML = txtBox.value;
-                            data.value = txtBox.value;
-                            data.grid.focus();
-                        }
-                        $(txtBox).blur(function () {
-                            setTimeout(finishEdit, 0);
-                        });
-                        $(txtBox).keydown(function (e) {
-                            if (e.keyCode === 13) {
-                                finishEdit();
-                            }
-                            e.stopPropagation();
-                        });
-                        data.cell.appendChild(txtBox);
-                        setTimeout(function () {
-                            txtBox.focus();
-                            txtBox.selectionStart = txtBox.value.length;
-                        }, 10);
+                    var tb = data.grid;
+                    var array = data.grid.data().src();
+                    data.cell.firstChild.innerHTML = "";
+                    var btnMenu = tui.ctrl.button();
+                    btnMenu.addClass("tui-grid-menu-button");
+                    btnMenu.text("<i class='fa fa-bars'></i>");
+                    if (typeof itemMenu === "function")
+                        btnMenu.menu(itemMenu(data));
+                    else
+                        btnMenu.menu(itemMenu);
+                    btnMenu.menuPos(menuPos);
+                    data.cell.firstChild.appendChild(btnMenu[0]);
+                    btnMenu.on("select", function (d) {
+                        func && func(d.item, data);
+                    });
+                    $(btnMenu[0]).mousedown(function (e) {
+                        data.grid.editCell(data.rowIndex, data.colIndex);
+                        e.stopPropagation();
+                        tui.fire("#tui.check.popup");
+                    });
+                    $(btnMenu[0]).keydown(function (e) {
+                        handleKeyDownEvent(e, data, "button");
                     });
                 };
             };
-
+            Grid.button = function (text, func) {
+                return function (data) {
+                    if (data.rowIndex < 0)
+                        return;
+                    var tb = data.grid;
+                    var array = data.grid.data().src();
+                    data.cell.firstChild.innerHTML = "";
+                    var btnMenu = tui.ctrl.button();
+                    btnMenu.text(text);
+                    data.cell.firstChild.appendChild(btnMenu[0]);
+                    btnMenu.on("click", function () {
+                        func && func(data);
+                    });
+                    $(btnMenu[0]).mousedown(function (e) {
+                        data.grid.editCell(data.rowIndex, data.colIndex);
+                        e.stopPropagation();
+                        tui.fire("#tui.check.popup");
+                    });
+                    $(btnMenu[0]).keydown(function (e) {
+                        handleKeyDownEvent(e, data, "button");
+                    });
+                };
+            };
             Grid.checkbox = function (withHeader) {
                 if (typeof withHeader === "undefined") { withHeader = true; }
                 return function (data) {
@@ -6825,118 +7008,159 @@ var tui;
                             });
                         }
                         return;
+                    } else {
+                        data.cell.firstChild.innerHTML = "";
+                        var chk = tui.ctrl.checkbox();
+                        data.cell.firstChild.appendChild(chk[0]);
+                        data.cell.style.textAlign = "center";
+                        chk.checked(data.value);
+                        chk.on("click", function () {
+                            if (typeof data.colKey !== tui.undef)
+                                data.row[data.colKey] = chk.checked();
+                            data.value = chk.checked();
+                            data.grid.refreshHead();
+                        });
+                        $(chk[0]).keydown(function (e) {
+                            handleKeyDownEvent(e, data, "checkbox");
+                        });
                     }
-                    data.cell.firstChild.innerHTML = "";
-                    var chk = tui.ctrl.checkbox();
-                    data.cell.firstChild.appendChild(chk[0]);
-                    data.cell.style.textAlign = "center";
-                    chk.checked(data.value);
-                    chk.on("click", function () {
-                        if (typeof data.colKey !== tui.undef)
-                            data.row[data.colKey] = chk.checked();
-                        data.value = chk.checked();
-                        data.grid.refreshHead();
-                    });
                 };
+            };
+
+            Grid.textEditor = function (listData) {
+                return createInputFormatter("text", listData);
             };
 
             Grid.selector = function (listData) {
-                return function (data) {
-                    if (data.rowIndex < 0) {
-                        return;
-                    }
-                    var select = tui.ctrl.input(null, "select");
-                    select.useLabelClick(false);
-                    select.addClass("tui-grid-selector");
-                    select.data(listData);
-                    data.cell.appendChild(select[0]);
-                    select.value(data.value);
-                    select.on("select", function () {
-                        if (typeof data.colKey !== tui.undef)
-                            data.row[data.colKey] = select.value();
-                        data.value = select.value();
-                        data.grid.focus();
-                    });
-                    select[0].style.width = $(data.cell).innerWidth() + "px";
-                    select[0].style.height = $(data.cell).innerHeight() + "px";
-                    select.refresh();
-                };
+                return createInputFormatter("select", listData);
             };
 
             Grid.fileSelector = function (address, accept) {
-                return function (data) {
-                    if (data.rowIndex < 0) {
-                        return;
-                    }
-                    var select = tui.ctrl.input(null, "file");
-                    select.uploadUrl(address);
-                    select.accept(accept);
-                    select.useLabelClick(false);
-                    select.addClass("tui-grid-selector");
-                    data.cell.appendChild(select[0]);
-                    select.value(data.value);
-                    select.on("select", function () {
-                        if (typeof data.colKey !== tui.undef)
-                            data.row[data.colKey] = select.value();
-                        data.value = select.value();
-                        data.grid.focus();
-                    });
-                    select[0].style.width = $(data.cell).innerWidth() + "px";
-                    select[0].style.height = $(data.cell).innerHeight() + "px";
-                    select.refresh();
-                };
+                return createInputFormatter("file", address, accept);
             };
 
             Grid.calendarSelector = function () {
-                return function (data) {
-                    if (data.rowIndex < 0) {
-                        return;
-                    }
-                    var select = tui.ctrl.input(null, "calendar");
-                    select.useLabelClick(false);
-                    select.addClass("tui-grid-selector");
-                    data.cell.appendChild(select[0]);
-                    select.value(data.value);
-                    select.on("select", function () {
-                        if (typeof data.colKey !== tui.undef)
-                            data.row[data.colKey] = select.value();
-                        data.value = select.value();
-                        data.grid.focus();
-                    });
-                    select[0].style.width = $(data.cell).innerWidth() + "px";
-                    select[0].style.height = $(data.cell).innerHeight() + "px";
-                    select.refresh();
-                };
+                return createInputFormatter("calendar");
             };
 
             Grid.customSelector = function (func, icon) {
                 if (typeof icon === "undefined") { icon = "fa-ellipsis-h"; }
-                return function (data) {
-                    if (data.rowIndex < 0) {
-                        return;
-                    }
-                    var select = tui.ctrl.input(null, "custom-select");
-                    select.useLabelClick(false);
-                    select.icon(icon);
-                    select.addClass("tui-grid-selector");
-                    select.on("btnclick", func);
-                    select.on("select", function () {
-                        if (typeof data.colKey !== tui.undef)
-                            data.row[data.colKey] = select.value();
-                        data.value = select.value();
-                        data.grid.focus();
-                    });
-                    data.cell.appendChild(select[0]);
-                    select.value(data.value);
-                    select[0].style.width = $(data.cell).innerWidth() + "px";
-                    select[0].style.height = $(data.cell).innerHeight() + "px";
-                    select.refresh();
-                };
+                return createInputFormatter("custom-select", func, icon);
             };
             Grid.CLASS = "tui-grid";
             return Grid;
         })(ctrl.Control);
         ctrl.Grid = Grid;
+
+        function handleKeyDownEvent(e, data, type) {
+            var k = e.keyCode;
+            var col, row;
+            if (k === tui.KEY_DOWN) {
+                if (data.rowIndex < data.grid.data().length() - 1)
+                    data.grid.editCell(data.rowIndex + 1, data.colIndex);
+                e.stopPropagation();
+            } else if (k === tui.KEY_UP) {
+                if (data.rowIndex > 0)
+                    data.grid.editCell(data.rowIndex - 1, data.colIndex);
+                e.stopPropagation();
+            } else if (k === tui.KEY_LEFT) {
+                if (type !== "text" || e.ctrlKey) {
+                    col = data.colIndex - 1;
+                    while (col >= 0) {
+                        if (data.grid.editCell(data.rowIndex, col--))
+                            break;
+                    }
+                }
+                e.stopPropagation();
+            } else if (k === tui.KEY_RIGHT) {
+                if (type !== "text" || e.ctrlKey) {
+                    col = data.colIndex + 1;
+                    while (col < data.grid.columns().length) {
+                        if (data.grid.editCell(data.rowIndex, col++))
+                            break;
+                    }
+                }
+                e.stopPropagation();
+            } else if (k === tui.KEY_TAB && e.shiftKey) {
+                col = data.colIndex;
+                row = data.rowIndex;
+                while (row >= 0 && col >= 0) {
+                    col--;
+                    if (col < 0) {
+                        col = data.grid.columns().length - 1;
+                        row--;
+                    }
+                    if (data.grid.editCell(row, col))
+                        break;
+                }
+                e.preventDefault();
+                e.stopPropagation();
+            } else if (k === tui.KEY_TAB) {
+                col = data.colIndex;
+                row = data.rowIndex;
+                while (row < data.grid.data().length() && col < data.grid.columns().length) {
+                    col++;
+                    if (col >= data.grid.columns().length) {
+                        col = 0;
+                        row++;
+                    }
+                    if (data.grid.editCell(row, col))
+                        break;
+                }
+                e.preventDefault();
+                e.stopPropagation();
+            } else {
+                if (type === "text") {
+                    data.grid.editCell(data.rowIndex, data.colIndex);
+                    //setTimeout(function () { data.grid[0].scrollTop = 0; }, 0);
+                }
+            }
+        }
+
+        function createInputFormatter(type, param1, param2) {
+            return function (data) {
+                if (data.rowIndex < 0) {
+                    return;
+                }
+                var editor = tui.ctrl.input(null, type);
+                editor.useLabelClick(false);
+                editor.addClass("tui-grid-editor");
+                editor.on("select change", function () {
+                    if (typeof data.colKey !== tui.undef)
+                        data.row[data.colKey] = editor.value();
+                    data.value = editor.value();
+                });
+
+                if (type === "text") {
+                    if (param1)
+                        editor.data(param1);
+                } else if (type === "select") {
+                    editor.data(param1);
+                } else if (type === "custom-select") {
+                    editor.on("btnclick", param1);
+                    editor.icon(param2);
+                } else if (type === "calendar") {
+                } else if (type === "file") {
+                    editor.uploadUrl(param1);
+                    editor.accept(param2);
+                }
+
+                $(editor[0]).mousedown(function (e) {
+                    data.grid.editCell(data.rowIndex, data.colIndex);
+                    e.stopPropagation();
+                    tui.fire("#tui.check.popup");
+                });
+                $(editor[0]).keydown(function (e) {
+                    handleKeyDownEvent(e, data, type);
+                });
+
+                editor.value(data.value);
+                editor[0].style.width = $(data.cell).innerWidth() - 1 + "px";
+                editor[0].style.height = $(data.cell).innerHeight() + "px";
+                data.cell.appendChild(editor[0]);
+                editor.refresh();
+            };
+        }
 
         /**
         * Construct a grid.
@@ -7563,6 +7787,26 @@ var tui;
                 this._columnKeyMap = null;
                 // Whether has been initialized.
                 this._initialized = false;
+                // For text suggestion
+                this._suggestionList = null;
+                this._suggestionPopup = null;
+                this._suggestionText = null;
+                this.openPopup = (function () {
+                    var self = _this;
+                    return function (e) {
+                        if (self.type() === "calendar") {
+                            self.showCalendar();
+                        } else if (self.type() === "select") {
+                            self.showSingleSelect();
+                        } else if (self.type() === "multi-select") {
+                            self.showMultiSelect();
+                        } else if (self.type() === "file") {
+                            // Don't need do anything
+                        } else {
+                            self.fire("btnclick", { "ctrl": self[0], "event": e });
+                        }
+                    };
+                })();
                 var self = this;
 
                 this._button = document.createElement("span");
@@ -7572,177 +7816,15 @@ var tui;
                 this[0].appendChild(this._label);
                 this[0].appendChild(this._button);
                 this[0].appendChild(this._notify);
+                this[1] = this._label;
+                this[2] = this._button;
 
                 if (typeof type !== tui.undef)
                     this.type(type);
                 else
                     this.type(this.type());
 
-                //this.createTextbox();
-                var openPopup = function (e) {
-                    if (_this.type() === "calendar") {
-                        var pop = tui.ctrl.popup();
-                        var calendar = tui.ctrl.calendar();
-                        calendar.time(self.value());
-                        calendar.on("picked", function (e) {
-                            if (self.readonly()) {
-                                pop.close();
-                                self.focus();
-                                return false;
-                            }
-                            self.value(e["time"]);
-                            pop.close();
-                            self.focus();
-                            if (self.fire("select", { ctrl: self[0], type: self.type(), time: e["time"] }) === false)
-                                return;
-                            self.doSubmit();
-                        });
-                        var calbox = document.createElement("div");
-                        calbox.appendChild(calendar[0]);
-                        var todayLink = document.createElement("a");
-                        todayLink.innerHTML = "<i class='fa fa-clock-o'></i> " + tui.str("Today") + ": " + tui.formatDate(tui.today(), "yyyy-MM-dd");
-                        todayLink.href = "javascript:void(0)";
-                        $(todayLink).click(function (e) {
-                            if (self.readonly()) {
-                                pop.close();
-                                self.focus();
-                                return false;
-                            }
-                            self.value(tui.today());
-                            pop.close();
-                            self.focus();
-                            if (self.fire("select", { ctrl: self[0], type: self.type(), time: e["time"] }) === false)
-                                return;
-                            self.doSubmit();
-                        });
-                        var todayLine = document.createElement("div");
-                        todayLine.appendChild(todayLink);
-                        todayLine.className = "tui-input-select-bar";
-                        calbox.appendChild(todayLine);
-                        pop.show(calbox, self[0], "Rb");
-                        calendar.focus();
-                    } else if (_this.type() === "select") {
-                        var pop = tui.ctrl.popup();
-                        var list = tui.ctrl.list();
-                        list.consumeMouseWheelEvent(true);
-                        list.rowcheckable(false);
-                        list.on("rowclick", function (data) {
-                            if (self.readonly()) {
-                                pop.close();
-                                self.focus();
-                                return false;
-                            }
-                            self.selectValue([list.activeItem()]);
-                            pop.close();
-                            self.focus();
-                            if (self.fire("select", { ctrl: self[0], type: self.type(), item: list.activeItem() }) === false)
-                                return;
-                            self.doSubmit();
-                        });
-                        list.on("keydown", function (data) {
-                            if (data["event"].keyCode === 13) {
-                                if (self.readonly()) {
-                                    pop.close();
-                                    self.focus();
-                                    return false;
-                                }
-                                self.selectValue([list.activeItem()]);
-                                pop.close();
-                                self.focus();
-                                if (self.fire("select", { ctrl: self[0], type: self.type(), item: list.activeItem() }) === false)
-                                    return;
-                                self.doSubmit();
-                            }
-                        });
-                        list[0].style.width = self[0].offsetWidth + "px";
-                        list.data(self._data);
-                        pop.show(list[0], self[0], "Rb");
-
-                        var items = self._data ? self._data.length() : 0;
-                        if (items < 1)
-                            items = 1;
-                        else if (items > 6)
-                            items = 6;
-
-                        list[0].style.height = items * list.lineHeight() + 4 + "px";
-                        list.refresh();
-                        pop.refresh();
-                        var val = _this.selectValue();
-                        if (val && val.length > 0) {
-                            list.activeRowByKey(val[0].key);
-                            list.scrollTo(list.activerow());
-                        }
-                        list.focus();
-                    } else if (_this.type() === "multi-select") {
-                        var pop = tui.ctrl.popup();
-                        var list = tui.ctrl.list();
-                        list.consumeMouseWheelEvent(true);
-
-                        var calbox = document.createElement("div");
-                        calbox.appendChild(list[0]);
-
-                        list[0].style.width = self[0].offsetWidth + "px";
-                        list.data(self._data);
-                        list.uncheckAllItems();
-                        var keys = getKeys(_this.selectValue());
-                        list.checkItems(keys);
-                        calbox.appendChild(list[0]);
-                        var bar = document.createElement("div");
-                        bar.className = "tui-input-select-bar";
-                        calbox.appendChild(bar);
-                        var okLink = document.createElement("a");
-                        okLink.innerHTML = "<i class='fa fa-check'></i> " + tui.str("Accept");
-                        okLink.href = "javascript:void(0)";
-                        $(okLink).click(function (e) {
-                            if (self.readonly()) {
-                                pop.close();
-                                self.focus();
-                                return false;
-                            }
-                            self.selectValue(list.checkedItems());
-                            pop.close();
-                            self.focus();
-                            if (self.fire("select", { ctrl: self[0], type: self.type(), checkedItems: list.checkedItems() }) === false)
-                                return;
-                            self.doSubmit();
-                        });
-                        list.on("keydown", function (data) {
-                            if (data["event"].keyCode === 13) {
-                                if (self.readonly()) {
-                                    pop.close();
-                                    self.focus();
-                                    return false;
-                                }
-                                self.selectValue(list.checkedItems());
-                                pop.close();
-                                self.focus();
-                                if (self.fire("select", { ctrl: self[0], type: self.type(), checkedItems: list.checkedItems() }) === false)
-                                    return;
-                                self.doSubmit();
-                            }
-                        });
-                        bar.appendChild(okLink);
-
-                        pop.show(calbox, self[0], "Rb");
-
-                        var items = self._data ? self._data.length() : 0;
-                        if (items < 1)
-                            items = 1;
-                        else if (items > 6)
-                            items = 6;
-
-                        list[0].style.height = items * list.lineHeight() + 4 + "px";
-                        list.refresh();
-                        pop.refresh();
-                        list.focus();
-                    } else if (_this.type() === "file") {
-                        // Don't need do anything
-                    } else {
-                        _this.fire("btnclick", { "ctrl": _this[0], "event": e });
-                    }
-                };
-                $(this._button).on("click", openPopup);
-
+                $(this._button).on("click", this.openPopup);
                 $(this._label).on("mousedown", function (e) {
                     if (!_this.useLabelClick())
                         return;
@@ -7751,7 +7833,7 @@ var tui;
                             _this._textbox.focus();
                         }, 0);
                     else if (_this.type() === "select" || _this.type() === "multi-select" || _this.type() === "calendar") {
-                        openPopup(e);
+                        _this.openPopup(e);
                     } else if (_this.type() === "file") {
                     }
                 });
@@ -7768,13 +7850,13 @@ var tui;
                     if (e.keyCode !== 32)
                         return;
                     if (_this.type() === "select" || _this.type() === "multi-select" || _this.type() === "calendar") {
-                        openPopup(e);
+                        _this.openPopup(e);
                         e.preventDefault();
                         e.stopPropagation();
                     }
                 });
 
-                if (this.type() === "select" || this.type() === "multi-select") {
+                if (this.type() === "text" || this.type() === "custom-text" || this.type() === "select" || this.type() === "multi-select") {
                     var predefined = this.attr("data-data");
                     if (predefined)
                         predefined = eval("(" + predefined + ")");
@@ -7784,6 +7866,8 @@ var tui;
                 if (!this.hasAttr("data-label-click"))
                     this.useLabelClick(true);
                 this.value(this.value());
+                if (!this.hasAttr("data-any-suggestion"))
+                    this.anySuggestion(true);
                 //this.refresh();
             }
             Input.prototype.doSubmit = function () {
@@ -7802,6 +7886,7 @@ var tui;
                     this[0].removeChild(this._textbox);
                 }
                 this._textbox = document.createElement("input");
+                this[3] = this._textbox;
                 if (type === "password") {
                     this._textbox.type = "password";
                 } else {
@@ -7825,7 +7910,6 @@ var tui;
                         if (_this.text() !== _this._textbox.value) {
                             _this.text(_this._textbox.value);
                             self.fire("change", { "ctrl": _this[0], "event": e, "text": _this.text() });
-                            _this.refresh();
                         }
                     }, 0);
                 });
@@ -7833,7 +7917,6 @@ var tui;
                     if (_this.text() !== _this._textbox.value) {
                         _this.text(_this._textbox.value);
                         _this.fire("change", { "ctrl": _this[0], "event": e, "text": _this.text() });
-                        _this.refresh();
                     }
                 });
                 $(this._textbox).on("input", function (e) {
@@ -7841,15 +7924,226 @@ var tui;
                         if (_this.text() !== _this._textbox.value) {
                             _this.text(_this._textbox.value);
                             self.fire("change", { "ctrl": self[0], "event": e, "text": self.text() });
-                            _this.refresh();
                         }
                     }, 0);
                 });
                 $(this._textbox).keydown(function (e) {
-                    if (e.keyCode === 13) {
+                    if (!tui.CONTROL_KEYS[e.keyCode]) {
+                        setTimeout(function () {
+                            self.openSuggestion(self._textbox.value);
+                        }, 0);
+                    }
+                    if (self._suggestionList) {
+                        var list = self._suggestionList;
+                        if (e.keyCode === tui.KEY_DOWN) {
+                            var r = list.activerow();
+                            if (r === null || r >= list.data().length() - 1)
+                                list.activerow(0);
+                            else
+                                list.activerow(r + 1);
+                            if (list.activeItem()) {
+                                list.scrollTo(list.activerow());
+                                self.value(list.activeItem().key);
+                            }
+                            e.preventDefault();
+                            e.stopPropagation();
+                        } else if (e.keyCode === tui.KEY_UP) {
+                            var r = list.activerow();
+                            if (r === null || r <= 0)
+                                list.activerow(list.data().length() - 1);
+                            else
+                                list.activerow(r - 1);
+                            if (list.activeItem()) {
+                                list.scrollTo(list.activerow());
+                                self.value(list.activeItem().key);
+                            }
+                            e.preventDefault();
+                            e.stopPropagation();
+                        } else if (e.keyCode === tui.KEY_ENTER) {
+                            if (self.readonly()) {
+                                self._suggestionPopup.close();
+                                self._textbox.focus();
+                                return false;
+                            }
+                            if (list.activeItem()) {
+                                self.value(list.activeItem().key);
+                                self._suggestionPopup.close();
+                                self._textbox.focus();
+                                self.fire("change", { "ctrl": self[0], "event": e, "text": self.text() });
+                            }
+                        }
+                    }
+                    if (e.keyCode === tui.KEY_ENTER) {
                         _this.doSubmit();
                     }
                 });
+            };
+
+            Input.prototype.showCalendar = function () {
+                var self = this;
+                var pop = tui.ctrl.popup();
+                var calendar = tui.ctrl.calendar();
+                calendar.time(self.value());
+                calendar.on("picked", function (e) {
+                    if (self.readonly()) {
+                        pop.close();
+                        self.focus();
+                        return false;
+                    }
+                    self.value(e["time"]);
+                    pop.close();
+                    self.focus();
+                    if (self.fire("select", { ctrl: self[0], type: self.type(), time: e["time"] }) === false)
+                        return;
+                    self.doSubmit();
+                });
+                var calbox = document.createElement("div");
+                calbox.appendChild(calendar[0]);
+                var todayLink = document.createElement("a");
+                todayLink.innerHTML = "<i class='fa fa-clock-o'></i> " + tui.str("Today") + ": " + tui.formatDate(tui.today(), "yyyy-MM-dd");
+                todayLink.href = "javascript:void(0)";
+                $(todayLink).click(function (e) {
+                    if (self.readonly()) {
+                        pop.close();
+                        self.focus();
+                        return false;
+                    }
+                    self.value(tui.today());
+                    pop.close();
+                    self.focus();
+                    if (self.fire("select", { ctrl: self[0], type: self.type(), time: e["time"] }) === false)
+                        return;
+                    self.doSubmit();
+                });
+                var todayLine = document.createElement("div");
+                todayLine.appendChild(todayLink);
+                todayLine.className = "tui-input-select-bar";
+                calbox.appendChild(todayLine);
+                pop.show(calbox, self[0], "Rb");
+                calendar.focus();
+            };
+
+            Input.prototype.showSingleSelect = function () {
+                var self = this;
+                var pop = tui.ctrl.popup();
+                var list = tui.ctrl.list();
+                list.consumeMouseWheelEvent(true);
+                list.rowcheckable(false);
+                list.on("rowclick", function (data) {
+                    if (self.readonly()) {
+                        pop.close();
+                        self.focus();
+                        return false;
+                    }
+                    self.selectValue([list.activeItem()]);
+                    pop.close();
+                    self.focus();
+                    if (self.fire("select", { ctrl: self[0], type: self.type(), item: list.activeItem() }) === false)
+                        return;
+                    self.doSubmit();
+                });
+                list.on("keydown", function (data) {
+                    if (data["event"].keyCode === 13) {
+                        if (self.readonly()) {
+                            pop.close();
+                            self.focus();
+                            return false;
+                        }
+                        if (list.activeItem())
+                            self.selectValue([list.activeItem()]);
+                        else
+                            self.selectValue(null);
+                        pop.close();
+                        self.focus();
+                        if (self.fire("select", { ctrl: self[0], type: self.type(), item: list.activeItem() }) === false)
+                            return;
+                        self.doSubmit();
+                    }
+                });
+                list[0].style.width = self[0].offsetWidth - 2 + "px";
+                list.data(self._data);
+                pop.show(list[0], self[0], "Rb");
+
+                var items = self._data ? self._data.length() : 0;
+                if (items < 1)
+                    items = 1;
+                else if (items > 8)
+                    items = 8;
+
+                list[0].style.height = items * list.lineHeight() + 4 + "px";
+                list.refresh();
+                pop.refresh();
+                var val = this.selectValue();
+                if (val && val.length > 0) {
+                    list.activeRowByKey(val[0].key);
+                    list.scrollTo(list.activerow());
+                }
+                list.focus();
+            };
+
+            Input.prototype.showMultiSelect = function () {
+                var self = this;
+                var pop = tui.ctrl.popup();
+                var list = tui.ctrl.list();
+                list.consumeMouseWheelEvent(true);
+
+                var calbox = document.createElement("div");
+                calbox.appendChild(list[0]);
+
+                list[0].style.width = self[0].offsetWidth - 2 + "px";
+                list.data(self._data);
+                list.uncheckAllItems();
+                var keys = getKeys(this.selectValue());
+                list.checkItems(keys);
+                calbox.appendChild(list[0]);
+                var bar = document.createElement("div");
+                bar.className = "tui-input-select-bar";
+                calbox.appendChild(bar);
+                var okLink = document.createElement("a");
+                okLink.innerHTML = "<i class='fa fa-check'></i> " + tui.str("Accept");
+                okLink.href = "javascript:void(0)";
+                $(okLink).click(function (e) {
+                    if (self.readonly()) {
+                        pop.close();
+                        self.focus();
+                        return false;
+                    }
+                    self.selectValue(list.checkedItems());
+                    pop.close();
+                    self.focus();
+                    if (self.fire("select", { ctrl: self[0], type: self.type(), checkedItems: list.checkedItems() }) === false)
+                        return;
+                    self.doSubmit();
+                });
+                list.on("keydown", function (data) {
+                    if (data["event"].keyCode === 13) {
+                        if (self.readonly()) {
+                            pop.close();
+                            self.focus();
+                            return false;
+                        }
+                        self.selectValue(list.checkedItems());
+                        pop.close();
+                        self.focus();
+                        if (self.fire("select", { ctrl: self[0], type: self.type(), checkedItems: list.checkedItems() }) === false)
+                            return;
+                        self.doSubmit();
+                    }
+                });
+                bar.appendChild(okLink);
+
+                pop.show(calbox, self[0], "Rb");
+
+                var items = self._data ? self._data.length() : 0;
+                if (items < 1)
+                    items = 1;
+                else if (items > 8)
+                    items = 8;
+
+                list[0].style.height = items * list.lineHeight() + 4 + "px";
+                list.refresh();
+                pop.refresh();
+                list.focus();
             };
 
             Input.prototype.makeFileUpload = function () {
@@ -7884,7 +8178,7 @@ var tui;
                         if (_this.fire("select", { ctrl: _this[0], type: _this.type(), file: response }) === false)
                             return;
                     } else {
-                        tui.errbox(tui.str("Upload failed!"), tui.str("Error"));
+                        tui.errbox(tui.str("Upload failed, please check file type!"), tui.str("Error"));
                     }
                 });
             };
@@ -7960,6 +8254,91 @@ var tui;
                 return JSON.stringify(result);
             };
 
+            Input.prototype.openSuggestion = function (text) {
+                if (this.type() !== "text" && this.type() !== "custom-text") {
+                    this._suggestionPopup && this._suggestionPopup.close();
+                    return;
+                }
+                if (!this._data || (!this.anySuggestion() && (!text || text.length === 0))) {
+                    this._suggestionPopup && this._suggestionPopup.close();
+                    return;
+                }
+                if (this._suggestionText === text) {
+                    return;
+                }
+                var max = this.maxSuggestions();
+                var suggestions = [];
+                for (var i = 0; i < this._data.length(); i++) {
+                    var val = this._data.cell(i, "value");
+                    var m = val.toLowerCase().indexOf(text.toLowerCase());
+                    var sug = "";
+                    if (m >= 0) {
+                        sug += val.substring(0, m);
+                        sug += "<b style='color:#000'>" + val.substr(m, text.length) + "</b>";
+                        sug += val.substring(m + text.length);
+                        suggestions.push({ key: val, value: sug });
+                    } else {
+                        var k = this._data.cell(i, "key");
+                        if (k) {
+                            m = k.toLowerCase().indexOf(text.toLowerCase());
+                            if (m >= 0) {
+                                suggestions.push({ key: val, value: val });
+                            }
+                        }
+                    }
+                    if (max && suggestions.length >= max)
+                        break;
+                }
+                if (suggestions.length === 0) {
+                    this._suggestionPopup && this._suggestionPopup.close();
+                    return;
+                }
+                this._suggestionText = text;
+                suggestions.sort(function (a, b) {
+                    return a.key.localeCompare(b.key);
+                });
+                var self = this;
+                var pop = this._suggestionPopup;
+                var list = this._suggestionList;
+                if (this._suggestionPopup === null) {
+                    pop = this._suggestionPopup = tui.ctrl.popup();
+                    list = this._suggestionList = tui.ctrl.list();
+                    this._suggestionPopup.owner(self._textbox);
+                    list.consumeMouseWheelEvent(true);
+                    list.rowcheckable(false);
+                    list.on("rowmousedown", function (data) {
+                        if (self.readonly()) {
+                            pop.close();
+                            self._textbox.focus();
+                            return false;
+                        }
+                        self.value(list.activeItem().key);
+                        pop.close();
+                        self._textbox.focus();
+                        self.fire("change", { "ctrl": self[0], "event": data["event"], "text": self.text() });
+                        return;
+                        self.doSubmit();
+                    });
+                    pop.on("close", function () {
+                        self._suggestionPopup = null;
+                        self._suggestionList = null;
+                        self._suggestionText = null;
+                    });
+                    pop.show(list[0], self[0], "Rb");
+                }
+                list[0].style.width = self[0].offsetWidth - 2 + "px";
+                list.data(suggestions);
+                list.activerow(null);
+                var items = suggestions.length;
+                if (items < 1)
+                    items = 1;
+                else if (items > 8)
+                    items = 8;
+                list[0].style.height = items * list.lineHeight() + 4 + "px";
+                list.refresh();
+                pop.refresh();
+            };
+
             Input.prototype.useLabelClick = function (val) {
                 if (typeof val === "boolean") {
                     this.is("data-label-click", val);
@@ -8031,6 +8410,27 @@ var tui;
                             return null;
                         }
                     }
+                }
+            };
+
+            Input.prototype.anySuggestion = function (val) {
+                if (typeof val === "boolean") {
+                    this.is("data-any-suggestion", val);
+                    return this;
+                } else
+                    return this.is("data-any-suggestion");
+            };
+
+            Input.prototype.maxSuggestions = function (val) {
+                if (typeof val === "number") {
+                    this.attr("data-max-suggestions", Math.floor(val));
+                    return this;
+                } else {
+                    val = parseInt(this.attr("data-max-suggestions"));
+                    if (isNaN(val))
+                        return null;
+                    else
+                        return val;
                 }
             };
 
@@ -8418,6 +8818,19 @@ var tui;
                 return !this._initialized;
             };
 
+            Input.prototype.focus = function () {
+                var _this = this;
+                if (this.type() === "text" || this.type() === "password" || this.type() === "custom-text") {
+                    setTimeout(function () {
+                        _this._textbox.focus();
+                    }, 0);
+                } else if (this[0]) {
+                    setTimeout(function () {
+                        _this[0].focus();
+                    }, 0);
+                }
+            };
+
             Input.prototype.refresh = function () {
                 if (!this[0] || this[0].offsetWidth === 0 || this[0].offsetHeight === 0)
                     return;
@@ -8550,6 +8963,7 @@ var tui;
                 "*number": "^[+\\-]?\\d+|(\\d*\\.\\d+)$",
                 "*currency": "^-?\\d{1,3}(,\\d{3})*\\.\\d{2,3}$",
                 "*date": "^[0-9]{4}-1[0-2]|0?[1-9]-0?[1-9]|[12][0-9]|3[01]$",
+                "*key": "^[_a-zA-Z][a-zA-Z0-9_]*$",
                 "*any": "\\S+"
             };
 
@@ -9820,6 +10234,7 @@ var tui;
                 var div = document.createElement("div");
                 this._menuDiv = div;
                 div.className = Menu.CLASS;
+                $(div).attr("unselectable", "on");
                 $(div).attr("tabIndex", "-1");
                 for (var i = 0; i < data.length(); i++) {
                     var row = data.at(i);

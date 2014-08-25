@@ -6,45 +6,13 @@
 	<artifactId>webapi-archetype</artifactId>
 	<version>1.0-SNAPSHOT</version>
 	<packaging>maven-archetype</packaging>
-
 	<name>webapi-archetype</name>
-	<description>
-		A lightweight java web framework used for easily create ajax based web application
-	</description>
-	<url>https://github.com/ThorQin/webapi-suit</url>
-	<licenses>
-		<license>
-			<name>MIT</name>
-			<url>http://mit-license.org/</url>
-			<distribution>repo</distribution>
-		</license>
-	</licenses>
-	<developers>
-		<developer>
-			<id>thorqin</id>
-			<name>Thor Qin</name>
-			<email>thor.qin@outlook.com</email>
-		</developer>
-	</developers>
-	
-	<scm>
-		<url>https://github.com/ThorQin/webapi-suit</url>
-		<connection>scm:git:https://github.com/ThorQin/webapi-suit.git</connection>
-	</scm>
+	<parent>
+		<groupId>com.github.thorqin</groupId>
+		<artifactId>webapi-suit</artifactId>
+		<version>1.0-SNAPSHOT</version>
+	</parent>
 
-	<distributionManagement> 
-		<repository>
-			<id>sonatype-nexus-staging</id>
-			<name>Nexus Staging Repository</name>
-			<url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-		</repository>
-		<snapshotRepository>
-			<id>sonatype-nexus-snapshots</id>
-			<name>Sonatype Nexus Snapshots</name>
-			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
-		</snapshotRepository>
-	</distributionManagement>
-  
 	<build>
 		<extensions>
 			<extension>
@@ -61,42 +29,5 @@
 				</plugin>
 			</plugins>
 		</pluginManagement>
-		<plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-gpg-plugin</artifactId>
-				<version>1.5</version>
-				<configuration>
-					<useAgent>true</useAgent>
-				</configuration>
-				<executions>
-					<execution>
-						<id>sign-artifacts</id>
-						<phase>deploy</phase>
-						<goals>
-							<goal>sign</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
-		</plugins>
 	</build>
-	
-	<profiles>
-		<profile>
-			<id>cnooc</id>
-			<distributionManagement>
-				<repository> 
-					<id>nexus-releases</id> 
-					<name>Internal Releases</name> 
-					<url>http://10.63.2.111:8081/nexus/content/repositories/releases</url> 
-				</repository> 
-				<snapshotRepository> 
-					<id>nexus-snapshots</id>
-					<name>Internal Snapshots</name> 
-					<url>http://10.63.2.111:8081/nexus/content/repositories/snapshots</url> 
-				</snapshotRepository> 
-			</distributionManagement>
-		</profile>
-	</profiles>
 </project>

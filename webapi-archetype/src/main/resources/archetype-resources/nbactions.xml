@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<actions>
+	<action>
+		<actionName>CUSTOM-web-config</actionName>
+		<displayName>webconfig</displayName>
+		<goals>
+			<goal>exec:exec</goal>
+		</goals>
+	</action>
+	<action>
+		<actionName>CUSTOM-jetty-debug</actionName>
+		<displayName>jetty-debug</displayName>
+		<goals>
+			<goal>jetty:run</goal>
+		</goals>
+		<properties>
+			<jpda.listen>maven</jpda.listen>
+			<skipTests>true</skipTests>
+			<netbeans.deploy.debugmode>true</netbeans.deploy.debugmode>
+		</properties>
+	</action>
+	<action>
+		<actionName>CUSTOM-jetty-run</actionName>
+		<displayName>jetty-run</displayName>
+		<goals>
+			<goal>jetty:run</goal>
+		</goals>
+		<properties>
+			<skipTests>true</skipTests>
+		</properties>
+	</action>
+</actions>

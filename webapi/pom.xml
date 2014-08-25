@@ -6,50 +6,12 @@
 	<packaging>jar</packaging>
 	<version>2.0-SNAPSHOT</version>
 	<name>webapi</name>
-	
-	<description>
-		A lightweight java web framework used for easily create ajax based web application
-	</description>
-	<url>https://github.com/ThorQin/webapi-suit</url>
-	<licenses>
-		<license>
-			<name>MIT</name>
-			<url>http://mit-license.org/</url>
-			<distribution>repo</distribution>
-		</license>
-	</licenses>
-	<developers>
-		<developer>
-			<id>thorqin</id>
-			<name>Thor Qin</name>
-			<email>thor.qin@outlook.com</email>
-		</developer>
-	</developers>
-	
-	<scm>
-		<url>https://github.com/ThorQin/webapi-suit</url>
-		<connection>scm:git:https://github.com/ThorQin/webapi-suit.git</connection>
-	</scm>
-	
-	<properties>
-		<downloadSources>true</downloadSources>
-		<downloadJavadocs>true</downloadJavadocs>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-	</properties>
-	
-	<distributionManagement> 
-		<repository>
-			<id>sonatype-nexus-staging</id>
-			<name>Nexus Staging Repository</name>
-			<url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-		</repository>
-		<snapshotRepository>
-			<id>sonatype-nexus-snapshots</id>
-			<name>Sonatype Nexus Snapshots</name>
-			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
-		</snapshotRepository>
-	</distributionManagement>
-	
+	<parent>
+		<groupId>com.github.thorqin</groupId>
+		<artifactId>webapi-suit</artifactId>
+		<version>1.0-SNAPSHOT</version>
+	</parent>
+
 	<dependencies>
 		<dependency>
 			<groupId>javax.servlet</groupId>
@@ -111,42 +73,6 @@
 	</dependencies>
 	<build>
 		<plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-gpg-plugin</artifactId>
-				<version>1.5</version>
-				<configuration>
-					<useAgent>true</useAgent>
-				</configuration>
-				<executions>
-					<execution>
-						<id>sign-artifacts</id>
-						<phase>deploy</phase>
-						<goals>
-							<goal>sign</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.1</version>
-				<configuration>
-					<compilerVersion>1.7</compilerVersion>
-					<source>1.7</source>
-					<target>1.7</target>
-					<encoding>${project.build.sourceEncoding}</encoding>
-					<showDeprecation>true</showDeprecation>
-					<compilerArguments>
-						<Xmaxerrs>1000</Xmaxerrs>
-						<Xlint/>
-						<Xlint:-path/>
-						<Xlint:unchecked/>
-						<Averbose>true</Averbose>
-					</compilerArguments>
-				</configuration>
-			</plugin>
 			<plugin>  
 				<groupId>org.apache.maven.plugins</groupId>  
 				<artifactId>maven-jar-plugin</artifactId>
@@ -156,45 +82,9 @@
 						<manifest>  
 							<addClasspath>true</addClasspath>
 							<mainClass>com.github.thorqin.webapi.smc.ConfigManager</mainClass>  
-						</manifest>  
+						</manifest>
 					</archive>  
 				</configuration>  
-			</plugin>  
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-resources-plugin</artifactId>
-				<version>2.6</version>
-				<configuration>
-					<encoding>${project.build.sourceEncoding}</encoding>
-				</configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-source-plugin</artifactId>
-				<version>2.2.1</version>
-				<executions>
-					<execution>
-						<id>attach-sources</id>
-						<phase>deploy</phase>
-						<goals>
-							<goal>jar</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>          
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-javadoc-plugin</artifactId>
-				<version>2.9.1</version>
-				<executions>
-					<execution>
-						<id>attach-javadocs</id>
-						<phase>deploy</phase>
-						<goals>
-							<goal>jar</goal>
-						</goals>
-					</execution>
-				</executions>
 			</plugin>
 			<plugin>  
 				<groupId>org.codehaus.mojo</groupId>  
@@ -212,21 +102,4 @@
 		</plugins>
 		<finalName>webapi</finalName>
 	</build>
-	<profiles>
-		<profile>
-			<id>cnooc</id>
-			<distributionManagement>
-				<repository> 
-					<id>nexus-releases</id> 
-					<name>Internal Releases</name> 
-					<url>http://10.63.2.111:8081/nexus/content/repositories/releases</url> 
-				</repository> 
-				<snapshotRepository> 
-					<id>nexus-snapshots</id>
-					<name>Internal Snapshots</name> 
-					<url>http://10.63.2.111:8081/nexus/content/repositories/snapshots</url> 
-				</snapshotRepository> 
-			</distributionManagement>
-		</profile>
-	</profiles>
 </project>

@@ -12,7 +12,17 @@
 	<properties>
 		<endorsed.dir>${project.build.directory}/endorsed</endorsed.dir>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<downloadSources>true</downloadSources>
+		<downloadJavadocs>true</downloadJavadocs>		
 	</properties>
+	
+	<repositories>
+		<repository> 
+			<id>ossrh</id>
+			<name>Sonatype Nexus Snapshots</name>
+			<url>https://oss.sonatype.org/content/groups/public</url>
+		</repository> 
+	</repositories>
 
 	<dependencies>
 		<dependency>
@@ -68,7 +78,16 @@
 						<argument>src/main/resources/web.config</argument>
 					</arguments>  
 				</configuration>  
-			</plugin>  
+			</plugin>
+			<plugin>
+				<groupId>org.eclipse.jetty</groupId>
+				<artifactId>jetty-maven-plugin</artifactId>
+				<version>9.2.2.v20140723</version>
+				<configuration>
+					<webAppSourceDirectory>${project.build.directory}/${project.build.finalName}</webAppSourceDirectory>
+					<scanIntervalSeconds>3</scanIntervalSeconds>
+				</configuration>
+			</plugin>			
 		</plugins>
 	</build>
 
