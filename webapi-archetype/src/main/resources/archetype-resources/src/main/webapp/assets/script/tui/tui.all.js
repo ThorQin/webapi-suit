@@ -8035,7 +8035,7 @@ var tui;
                         self.focus();
                         return false;
                     }
-                    self.selectValue([list.activeItem()]);
+                    self.selectValue(self.getKeyValue([list.activeItem()]));
                     pop.close();
                     self.focus();
                     if (self.fire("select", { ctrl: self[0], type: self.type(), item: list.activeItem() }) === false)
@@ -8050,7 +8050,7 @@ var tui;
                             return false;
                         }
                         if (list.activeItem())
-                            self.selectValue([list.activeItem()]);
+                            self.selectValue(self.getKeyValue([list.activeItem()]));
                         else
                             self.selectValue(null);
                         pop.close();
@@ -8108,7 +8108,7 @@ var tui;
                         self.focus();
                         return false;
                     }
-                    self.selectValue(list.checkedItems());
+                    self.selectValue(self.getKeyValue(list.checkedItems()));
                     pop.close();
                     self.focus();
                     if (self.fire("select", { ctrl: self[0], type: self.type(), checkedItems: list.checkedItems() }) === false)
@@ -8122,7 +8122,7 @@ var tui;
                             self.focus();
                             return false;
                         }
-                        self.selectValue(list.checkedItems());
+                        self.selectValue(self.getKeyValue(list.checkedItems()));
                         pop.close();
                         self.focus();
                         if (self.fire("select", { ctrl: self[0], type: self.type(), checkedItems: list.checkedItems() }) === false)
@@ -8221,9 +8221,9 @@ var tui;
                 for (var i = 0; i < val.length; i++) {
                     if (text.length > 0)
                         text += "; ";
-                    var t = map[val[i][self._keyColumKey]];
+                    var t = map[val[i].key];
                     if (typeof t === tui.undef)
-                        t = validText(val[i][self._valueColumnKey]);
+                        t = validText(val[i].value);
                     else
                         t = validText(t);
                     text += t;
@@ -8241,7 +8241,7 @@ var tui;
                     return key;
             };
 
-            Input.prototype.onlyKeyValue = function (value) {
+            Input.prototype.getKeyValue = function (value) {
                 var result = [];
                 for (var i = 0; i < value.length; i++) {
                     if (typeof value[i][this._keyColumKey] !== tui.undef) {
@@ -8251,7 +8251,7 @@ var tui;
                         result.push(item);
                     }
                 }
-                return JSON.stringify(result);
+                return result;
             };
 
             Input.prototype.openSuggestion = function (text) {
@@ -8630,7 +8630,7 @@ var tui;
                 if (typeof val !== tui.undef) {
                     if (type === "select" || type === "multi-select") {
                         if (val && typeof val.length === "number") {
-                            this.attr("data-value", this.onlyKeyValue(val));
+                            this.attr("data-value", JSON.stringify(val));
                             this.attr("data-text", this.formatSelectTextByData(val));
                             this._invalid = false;
                         } else if (val === null) {

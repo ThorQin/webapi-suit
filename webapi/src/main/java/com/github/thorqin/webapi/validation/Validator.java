@@ -239,12 +239,8 @@ public class Validator {
 		}
 	}
 	
-	private void validateObject(Object value, Validate anno) throws ValidateException {
-		if (value == null) {
-			if (!anno.allowNull())
-				throw new ValidateException("Object cannot be null!");
-		} else {
-			Class<?> type = value.getClass();
+	private void validateObject(Object value, Class<?> type) throws ValidateException {
+		if (value != null) {
 			Set<Field> fieldsToCheck = new HashSet<>();
 			fieldsToCheck.addAll(Arrays.asList(type.getFields()));
 			fieldsToCheck.addAll(Arrays.asList(type.getDeclaredFields()));
@@ -259,8 +255,19 @@ public class Validator {
 				} catch (IllegalArgumentException | IllegalAccessException ex) {
 					throw new ValidateException("Cannot access field!", ex);
 				}
-				pathStack.pop();
+				if (!pathStack.empty())
+					pathStack.pop();
 			}
+		}
+	}
+	
+	private void validateObject(Object value, Validate anno) throws ValidateException {
+		if (value == null) {
+			if (!anno.allowNull())
+				throw new ValidateException("Object cannot be null!");
+		} else {
+			Class<?> type = value.getClass();
+			validateObject(value, type);
 		}
 	}
 	
@@ -286,6 +293,7 @@ public class Validator {
 				if (!itemType.isInstance(item))
 					throw new ValidateException("Unexpected item type, need: '" + itemType.getName()
 						+ "' but found: '" + item.getClass().getName() + "'");
+				validateObject(item, itemType);
 			}
 		}
 	}
@@ -301,7 +309,8 @@ public class Validator {
 			for (Object item : value) {
 				pathStack.push("Collection Item: " + i);
 				validateCollectionItem(item, anno);
-				pathStack.pop();
+				if (!pathStack.empty())
+					pathStack.pop();
 				i++;
 			}
 		}
@@ -319,7 +328,8 @@ public class Validator {
 				pathStack.push("Array Item: " + i);
 				Object item = Array.get(value, i);
 				validateCollectionItem(item, anno);
-				pathStack.pop();
+				if (!pathStack.empty())
+					pathStack.pop();
 			}
 		}
 	}
@@ -340,7 +350,8 @@ public class Validator {
 				pathStack.push("Validate field: " + key);
 				Object obj = value.get(key);
 				validateInternal(obj, field.getType(), field.getAnnotations());
-				pathStack.pop();
+				if (!pathStack.empty())
+					pathStack.pop();
 			}
 		}
 	}
@@ -512,11 +523,10 @@ public class Validator {
 			validateInternal(object, type, annotations);
 		} catch (Exception ex) {
 			StringBuilder sb = new StringBuilder();
-			sb.append("ERROR: Validate failed!!! Cause by:");
-			sb.append("\n  ");
+			sb.append("ERROR: Validate failed!!! Cause by: ");
 			sb.append(ex.getMessage());
 			while (!pathStack.empty()) {
-				sb.append("\n  ");
+				sb.append("\n\tat * ");
 				sb.append(pathStack.pop());
 			}
 			throw new ValidateException(sb.toString());
