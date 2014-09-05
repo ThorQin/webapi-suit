@@ -1,7 +1,7 @@
 <%@page contentType="text/html" pageEncoding="UTF-8"%>
 <link rel="stylesheet" href="<%context%>/assets/script/tui/css/tui.min.css">
-<link href="<%context%>/assets/script/font-awesome-4.0.3/css/font-awesome.min.css" rel="stylesheet">
-<script src="<%context%>/assets/script/jquery-1.11.0.js"></script>
+<link href="<%context%>/assets/script/font-awesome-4.2.0/css/font-awesome.min.css" rel="stylesheet">
+<script src="<%context%>/assets/script/jquery-1.11.1.min.js"></script>
 <script src="<%context%>/assets/script/tui/tui.all.js"></script>
 <script src="<%context%>/assets/script/tui/lang/zh-cn.js"></script>
 <script src="<%context%>/assets/script/tui/lang/en-us.js"></script>

@@ -103,17 +103,7 @@ public class WebInitializer implements ServletContainerInitializer {
 					ServletRegistration.Dynamic servletRegistion = ctx.addServlet(
 							"WebApiDispatcher" + i, Dispatcher.class);
 					servletRegistion.setLoadOnStartup(0);
-					if (!dispatcherAnno.monitor().trim().isEmpty() &&
-							!dispatcherAnno.publish().trim().isEmpty()) {
-						servletRegistion.setInitParameter(
-								"monitor", dispatcherAnno.monitor().trim());
-						servletRegistion.setInitParameter(
-								"publish", dispatcherAnno.publish().trim());
-						if (dispatcherAnno.refreshPeriod() > 0)
-							servletRegistion.setInitParameter(
-									"refreshPeriod", 
-									String.valueOf(dispatcherAnno.refreshPeriod()));
-					}
+
 					int count = 0;
 					for (String path : pathList) {
 						if (path.trim().length() != 0) {
@@ -142,7 +132,6 @@ public class WebInitializer implements ServletContainerInitializer {
 					filterRegistion.addMappingForUrlPatterns(null, true, pathList);
 					if (pathList.length <= 0)
 						filterRegistion.addMappingForUrlPatterns(null, true, "/*");
-					
 				}
 			}
 		}

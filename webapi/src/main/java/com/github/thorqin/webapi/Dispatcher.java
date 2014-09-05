@@ -44,6 +44,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -83,7 +85,7 @@ public final class Dispatcher extends HttpServlet {
 	private RuleMatcher<MappingInfo> mapping = null;
 	private List<MappingInfo> startups = null;
 	private List<MappingInfo> cleanups = null;
-	private Publisher publisher = null;
+	//private Publisher publisher = null;
 	private static final Map<String, DBStore> dbMapping = new HashMap<>();
 	private static final Map<String, Object> dbProxyMapping = new HashMap<>();
 	private static final Map<String, AMQ> amqMapping = new HashMap<>();
@@ -94,6 +96,16 @@ public final class Dispatcher extends HttpServlet {
 	
 	public Dispatcher() {
 		super();
+	}
+	
+	/**
+	 * Get the path of related to the current class path
+	 * @param relativePath
+	 * @return URI of the path
+	 * @throws java.net.URISyntaxException
+	 */
+	public static URI getSitePath(String relativePath) throws URISyntaxException {
+		return Dispatcher.class.getResource("/").toURI();
 	}
 	
 	public static synchronized MailService getMailService(String configName) throws IOException {
@@ -187,25 +199,6 @@ public final class Dispatcher extends HttpServlet {
 		}
 		
 		referenceCount.incrementAndGet();
-		try {
-			String monitor = config.getInitParameter("monitor");
-			String publish = config.getInitParameter("publish");
-			String rootPath = config.getServletContext().getRealPath("/");
-			monitor = rootPath + monitor;
-			publish = rootPath + publish;
-			String refreshPeriod = config.getInitParameter("refreshPeriod");
-			if (monitor != null && publish != null) {
-				publisher = new Publisher(monitor, publish, config.getServletContext().getContextPath());
-				publisher.publish();
-				if (refreshPeriod != null && Long.parseLong(refreshPeriod) > 0) {
-					long period = Long.parseLong(refreshPeriod);
-					publisher.start(period);
-				}
-			}
-		} catch (Exception ex) {
-			destroy();
-			throw ex;
-		}
 	}
 
 	@Override
@@ -222,8 +215,6 @@ public final class Dispatcher extends HttpServlet {
 				mail.getValue().stop();
 			}
 		}
-		if (publisher != null)
-			publisher.stop();
 		// Servlet destroy
 		if (cleanups != null && cleanups.size() > 0) {
 			for (MappingInfo info : cleanups) {

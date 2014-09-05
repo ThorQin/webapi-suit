@@ -37,11 +37,4 @@ import java.lang.annotation.Target;
 @Target(value={TYPE})
 public @interface UseDispatcher {
 	String[] value() default "/*";
-	String monitor() default "";
-	String publish() default "";
-	/**
-	 * If need publisher auto refresh then set this field &gt; 0
-	 * @return 
-	 */
-	long refreshPeriod() default 0;
 }

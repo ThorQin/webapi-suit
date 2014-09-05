@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
+import java.text.ParseException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -12,8 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -23,7 +22,7 @@ import java.util.regex.Pattern;
  *
  * @author nuo.qin
  */
-public final class Publisher extends TimerTask {
+public final class Publisher {
 	private static class SrcInfo {
 		public long lastModified;
 		public String content;
@@ -35,12 +34,9 @@ public final class Publisher extends TimerTask {
 		}
 	}
 	
-	private Timer timer = null;
-	private static final Logger logger = Logger.getLogger(Publisher.class.getName());
 	//private ExecutorService executorService = null;
 	private File monitorPath = null;
 	private File publishPath = null;
-	private String contextPath = null;
 	
 	// key: path
 	private final Map<String, SrcInfo> cache = new HashMap<>();
@@ -52,14 +48,20 @@ public final class Publisher extends TimerTask {
 	// Store alreay published key
 	private final Set<String> published = new HashSet<>();
 	
-	public Publisher(String monitorPath, String publishPath, String contextPath) {
+	public static interface PublishEventListener {
+		void fileCreated(String path);
+	}
+	
+	private PublishEventListener listener;
+	
+	public Publisher(String monitorPath, String publishPath) {
 		this.monitorPath = new File(monitorPath).getAbsoluteFile();
 		this.publishPath = new File(publishPath).getAbsoluteFile();
-		if (contextPath == null)
-			this.contextPath = "";
-		else
-			this.contextPath = contextPath;
 		loadPublished();
+	}
+	
+	public void setPublishEventListener(PublishEventListener listener) {
+		this.listener = listener;
 	}
 	
 	private void loadPublished() {
@@ -82,27 +84,6 @@ public final class Publisher extends TimerTask {
 			Files.write(f.toPath(), published, Charset.forName("utf-8"));
 		} catch (IOException ex) {
 		}
-	}
-
-	/**
-	 * Start a publish timer
-	 * @param checkPeriod In milliseconds
-	 */
-	public void start(long checkPeriod) {
-		try {
-			if (timer != null)
-				return;
-			timer = new Timer();
-			createAllDir(monitorPath);
-		} catch (IOException ex) {
-			logger.log(Level.SEVERE, null, ex);
-		}
-		timer.schedule(this, 0, checkPeriod);
-	}
-	
-	public void stop() {
-		if (timer != null)
-			timer.cancel();
 	}
 	
 	private String keyPart(File file) {
@@ -205,7 +186,7 @@ public final class Publisher extends TimerTask {
 		return false;
 	}
 	
-	private SrcInfo build(File file, Stack<String> stack) {
+	private SrcInfo build(File file, Stack<String> stack) throws IOException, ParseException {
 		String parentKey = keyPart(file);
 		try {
 			stack.push(parentKey);
@@ -228,7 +209,7 @@ public final class Publisher extends TimerTask {
 				scanPos = matcher.end();
 				String cmd = matcher.group(1);
 				if (cmd.toLowerCase().equals("context")) {
-					buffer.append(this.contextPath);
+					buffer.append("<%context%>");
 				} else if (cmd.startsWith("@include")) {
 					Pattern incPattern = Pattern.compile("@include\\s+file=\"(.+)\"", Pattern.MULTILINE);
 					Matcher incMatcher = incPattern.matcher(cmd);
@@ -251,7 +232,7 @@ public final class Publisher extends TimerTask {
 								msg.append("    '").append(path).append("'\n");
 							}
 							msg.append(" -> '").append(childKey).append("'\n");
-							logger.log(Level.SEVERE, msg.toString());
+							throw new ParseException(msg.toString(),matcher.start());
 						}
 						if (cache.containsKey(childKey)) {
 							buffer.append(cache.get(childKey).content);
@@ -266,9 +247,6 @@ public final class Publisher extends TimerTask {
 			cache.put(parentKey, info);
 			updateReference(parentKey, childKeySet);
 			return info;
-		} catch (IOException ex) {
-			logger.log(Level.SEVERE, null, ex);
-			return null;
 		} finally {
 			stack.pop();
 		}
@@ -278,32 +256,49 @@ public final class Publisher extends TimerTask {
 		Files.createDirectories(destination.getParentFile().toPath());
 	}
 	
-	private void publishDir(File path, Set<String> newSet) {
+	private static final Pattern contextPattern = 
+			Pattern.compile("<%context%>", Pattern.MULTILINE);
+	private String replaceContextPath(String pageContent, int level) {
+		String parentPath;
+		if (level <= 0)
+			parentPath = ".";
+		else {
+			parentPath = "..";
+			for (int i = 1; i < level; i++) {
+				parentPath += "/..";
+			}
+		}
+		return contextPattern.matcher(pageContent).replaceAll(parentPath);
+	}
+	private void publishDir(File path, Set<String> newSet) throws IOException, ParseException {
+		publishDir(path, newSet, null);
+	}
+	private void publishDir(File path, Set<String> newSet, Integer level) throws IOException, ParseException {
     	if (path == null)
     		return;
     	if (path.isFile()) {
+			if (level == null)
+				level = 0;
     		if (path.getName().toLowerCase().endsWith(".shtml")) {
 				SrcInfo srcInfo = build(path, new Stack<String>());
 				if (srcInfo != null) {
 					newSet.add(srcInfo.key);
-					File destination = new File(absPath(publishPath) + "/" + srcInfo.key.substring(0, srcInfo.key.length()-5) + "html");
+					File destination = new File(absPath(publishPath) + "/" + srcInfo.key);
 					if (!destination.exists() || destination.lastModified() < srcInfo.lastModified) {
-						try {
-							createAllDir(destination);
-							Files.write(destination.toPath(), srcInfo.content.getBytes("utf-8"));
-						} catch (UnsupportedEncodingException ex) {
-							logger.log(Level.SEVERE, null, ex);
-						} catch (IOException ex) {
-							logger.log(Level.SEVERE, null, ex);
-						}
+						createAllDir(destination);
+						Files.write(destination.toPath(), replaceContextPath(srcInfo.content, level).getBytes("utf-8"));
+						if (this.listener != null)
+							this.listener.fileCreated(destination.getAbsolutePath());
 					}
 				}
     		} else if (path.getName().toLowerCase().endsWith(".ssi")) {
 				build(path, new Stack<String>());
 			}
     	} else if (path.isDirectory()) {
+			if (level == null)
+				level = -1;
     		for ( File item : path.listFiles()) {
-    			publishDir(item, newSet);
+    			publishDir(item, newSet, level + 1);
     		}
     	}
     }
@@ -343,12 +338,7 @@ public final class Publisher extends TimerTask {
 			deleteCache(key);
 			File publishedFile = new File(absPath(publishPath) + "/" + key);
 			if (publishedFile.exists()) {
-				try {
-					publishedFile.delete();
-				} catch (Exception ex) {
-					logger.log(Level.WARNING, 
-							"Can not delete published file: " + key, ex);
-				}
+				publishedFile.delete();
 			}
 		}
 	}
@@ -414,26 +404,19 @@ public final class Publisher extends TimerTask {
 	
 	/**
 	 * Do a fully publishing operation
+	 * @throws java.io.IOException
+	 * @throws java.text.ParseException
 	 */
-	public void publish() {
-		try {
-			createAllDir(monitorPath);
-			createAllDir(publishPath);
-			checkModify();
-			Set<String> newSet = new HashSet<>();
-			publishDir(monitorPath, newSet);
-			updatePublished(newSet);
-			deleteEmptyFolder(publishPath);
-			// printInfo();
-			savePublished();
-		} catch (IOException ex) {
-			logger.log(Level.SEVERE, null, ex);
-		}
-	}
-	
-	@Override
-	public void run() {
-		publish();
+	public void publish() throws IOException, ParseException {
+		createAllDir(monitorPath);
+		createAllDir(publishPath);
+		checkModify();
+		Set<String> newSet = new HashSet<>();
+		publishDir(monitorPath, newSet);
+		updatePublished(newSet);
+		deleteEmptyFolder(publishPath);
+		// printInfo();
+		savePublished();
 	}
 	
 

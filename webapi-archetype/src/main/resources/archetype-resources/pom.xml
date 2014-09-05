@@ -87,7 +87,23 @@
 					<webAppSourceDirectory>${project.build.directory}/${project.build.finalName}</webAppSourceDirectory>
 					<scanIntervalSeconds>3</scanIntervalSeconds>
 				</configuration>
-			</plugin>			
+			</plugin>
+			<plugin>
+				<groupId>com.github.thorqin.webapi-suit</groupId>
+				<artifactId>webapi-maven-plugin</artifactId>
+				<version>1.0-SNAPSHOT</version>
+				<configuration>
+					<targetDirectory>${project.build.directory}/${project.build.finalName}</targetDirectory>
+					<ssiDirectory>${basedir}/src/main/ssi</ssiDirectory>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>ssi-compile</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
 

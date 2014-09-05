@@ -576,23 +576,60 @@ var tui;
     }
     tui.getWindow = getWindow;
 
+    function cloneInternal(obj, excludeProperties) {
+        if (obj === null)
+            return null;
+        else if (typeof obj === tui.undef)
+            return undefined;
+        else if (obj instanceof Array) {
+            var newArray = [];
+            for (var idx in obj) {
+                if (obj.hasOwnProperty(idx) && excludeProperties.indexOf(idx) < 0) {
+                    newArray.push(cloneInternal(obj[idx], excludeProperties));
+                }
+            }
+            return newArray;
+        } else if (typeof obj === "number")
+            return obj;
+        else if (typeof obj === "string")
+            return obj;
+        else if (typeof obj === "boolean")
+            return obj;
+        else if (typeof obj === "function")
+            return obj;
+        else {
+            var newObj = {};
+            for (var idx in obj) {
+                if (obj.hasOwnProperty(idx) && excludeProperties.indexOf(idx) < 0) {
+                    newObj[idx] = cloneInternal(obj[idx], excludeProperties);
+                }
+            }
+            return newObj;
+        }
+    }
+
     /**
     * Deeply copy an object to an other object, but only contain properties without methods
     */
-    function clone(obj) {
-        return JSON.parse(JSON.stringify(obj));
+    function clone(obj, excludeProperties) {
+        if (typeof excludeProperties === "string" && $.trim(excludeProperties).length > 0) {
+            return cloneInternal(obj, [excludeProperties]);
+        } else if (excludeProperties instanceof Array) {
+            return cloneInternal(obj, excludeProperties);
+        } else
+            return JSON.parse(JSON.stringify(obj));
     }
     tui.clone = clone;
 
     /**
     * Test whether the button code is indecated that the event is triggered by a left mouse button.
     */
-    function isLButton(buttonCode) {
-        if (tui.ieVer !== -1 && tui.ieVer < 9) {
-            return (buttonCode === 1);
-        } else {
-            return buttonCode === 0;
-        }
+    function isLButton(e) {
+        var button = (typeof e.which !== "undefined") ? e.which : e.button;
+        if (button == 1) {
+            return true;
+        } else
+            return false;
     }
     tui.isLButton = isLButton;
 
@@ -1064,7 +1101,7 @@ var tui;
         var l = _accMap[key];
         if (l) {
             for (var i = 0; i < l.length; i++) {
-                if (tui.fire(l[i], { name: l[i] }) === false)
+                if (tui.fire(l[i], { name: l[i], event: e }) === false)
                     return;
             }
         }
@@ -1076,7 +1113,7 @@ var tui;
             l = _accMap[key];
         else {
             l = [];
-            _accMap[key] = {};
+            _accMap[key] = l;
         }
         if (l.indexOf(actionId) < 0)
             l.push(actionId);
@@ -2410,13 +2447,32 @@ var tui;
             _maskDiv.parentNode.removeChild(_maskDiv);
         _maskDiv.innerHTML = "";
         _maskDiv.style.cursor = "";
+        _maskDiv.removeAttribute("tabIndex");
+        _maskDiv.removeAttribute("data-tooltip");
+        _maskDiv.removeAttribute("data-cursor-tooltip");
         return _maskDiv;
     }
     tui.unmask = unmask;
 
-    function showTooltip(target, tooltip) {
-        if (target === _tooltipTarget || target === _tooltip)
+    function showTooltipAtCursor(target, tooltip, x, y) {
+        if (target === _tooltipTarget || target === _tooltip) {
+            _tooltip.style.left = x - 17 + "px";
+            _tooltip.style.top = y + 20 + "px";
+            _tooltip.innerHTML = tooltip;
             return;
+        }
+        document.body.appendChild(_tooltip);
+        _tooltip.innerHTML = tooltip;
+        _tooltipTarget = target;
+        _tooltip.style.left = x - 17 + "px";
+        _tooltip.style.top = y + 20 + "px";
+    }
+    tui.showTooltipAtCursor = showTooltipAtCursor;
+
+    function showTooltip(target, tooltip) {
+        if (target === _tooltipTarget || target === _tooltip) {
+            return;
+        }
         document.body.appendChild(_tooltip);
         _tooltip.innerHTML = tooltip;
         _tooltipTarget = target;
@@ -2437,14 +2493,17 @@ var tui;
     }
     tui.closeTooltip = closeTooltip;
 
-    function whetherShowTooltip(target) {
+    function whetherShowTooltip(target, e) {
         if (tui.isAncestry(target, _tooltip))
             return;
         var obj = target;
         while (obj) {
             var tooltip = obj.getAttribute("data-tooltip");
             if (tooltip) {
-                showTooltip(obj, tooltip);
+                if (obj.getAttribute("data-cursor-tooltip") === "true")
+                    showTooltipAtCursor(obj, tooltip, e.clientX, e.clientY);
+                else
+                    showTooltip(obj, tooltip);
                 return;
             } else {
                 obj = obj.parentElement;
@@ -2802,17 +2861,17 @@ var tui;
         }
         _ctrl.initCtrls = initCtrls;
 
-        var checkTooltipTimeout = null;
+        //var checkTooltipTimeout = null;
         var _hoverElement;
         $(window.document).mousemove(function (e) {
             _hoverElement = e.target || e.toElement;
 
             if (e.button === 0 && (e.which === 1 || e.which === 0)) {
-                if (checkTooltipTimeout)
-                    clearTimeout(checkTooltipTimeout);
-                checkTooltipTimeout = setTimeout(function () {
-                    tui.whetherShowTooltip(_hoverElement);
-                }, 20);
+                //if (checkTooltipTimeout)
+                //	clearTimeout(checkTooltipTimeout);
+                //checkTooltipTimeout = setTimeout(function () {
+                tui.whetherShowTooltip(_hoverElement, e);
+                //}, 150);
             }
         });
         $(window).scroll(function () {
@@ -3063,7 +3122,7 @@ var tui;
                         }
                     }
                     var param = { value: val };
-                    this.fire("pregetvalue", param);
+                    this.fire("getvalue", param);
                     return param.value;
                 }
             };
@@ -4702,6 +4761,8 @@ var tui;
             function Dialog() {
                 _super.call(this, "div", Dialog.CLASS, null);
                 this._resourceElement = null;
+                this._placeHolder = null;
+                this._hiddenOriginal = false;
                 this._isMoved = false;
                 this._isInitialize = true;
                 this._titleText = null;
@@ -4718,6 +4779,7 @@ var tui;
                 if (this[0])
                     return this;
                 this._resourceElement = null;
+                this._placeHolder = null;
                 return this.showElement(tui.toElement(content, true), title, buttons);
             };
 
@@ -4736,8 +4798,7 @@ var tui;
 
             /**
             * Show a element from page, put the element into the dialog,
-            * if pass an element id to method then when close dialog the selected element
-            * will be put back to body.
+            * when dialog closed the specify element will be put back to its original place.
             */
             Dialog.prototype.showElement = function (elem, title, buttons) {
                 var _this = this;
@@ -4746,11 +4807,21 @@ var tui;
                 if (typeof elem === "string") {
                     var elemId = elem;
                     elem = document.getElementById(elem);
-                    if (!elem) {
-                        throw new Error("Resource id not found: " + elemId);
-                    }
-                    this._resourceElement = elem;
                 }
+                if (!elem) {
+                    throw new Error("Invalid element!");
+                }
+                this._resourceElement = elem;
+                if ($(elem).hasClass("tui-hidden"))
+                    this._hiddenOriginal = true;
+                else
+                    this._hiddenOriginal = false;
+                if (elem.parentNode !== null) {
+                    this._placeHolder = document.createElement("span");
+                    this._placeHolder.className = "tui-hidden";
+                    elem.parentNode.insertBefore(this._placeHolder, elem);
+                } else
+                    this._placeHolder = null;
 
                 // Temporary inhibit refresh to prevent unexpected calculation
                 this._noRefresh = true;
@@ -4963,9 +5034,12 @@ var tui;
                 this._buttonDiv = null;
                 this._closeIcon = null;
                 this._titleText = null;
-                if (this._resourceElement) {
-                    $(this._resourceElement).addClass("tui-hidden");
-                    document.body.appendChild(this._resourceElement);
+                if (this._placeHolder) {
+                    this._placeHolder.parentNode && this._placeHolder.parentNode.insertBefore(this._resourceElement, this._placeHolder);
+                    tui.removeNode(this._placeHolder);
+                    this._placeHolder = null;
+                    if (this._hiddenOriginal)
+                        $(this._resourceElement).addClass("tui-hidden");
                     this._resourceElement = null;
                 }
                 this.fire("close");
@@ -5261,7 +5335,7 @@ var tui;
                     tui.fire("#tui.check.popup");
 
                     // Should check which target object was triggered.
-                    if (!tui.isLButton(e.button)) {
+                    if (!tui.isLButton(e)) {
                         return;
                     }
                     var obj = e.target;
@@ -5298,7 +5372,7 @@ var tui;
                 });
 
                 $(this._btnHead).mousedown(function (e) {
-                    if (!tui.isLButton(e.button))
+                    if (!tui.isLButton(e))
                         return;
                     if (self.total() <= 0)
                         return;
@@ -5315,7 +5389,7 @@ var tui;
                 });
 
                 $(this._btnFoot).mousedown(function (e) {
-                    if (!tui.isLButton(e.button))
+                    if (!tui.isLButton(e))
                         return;
                     if (self.total() <= 0)
                         return;
@@ -5376,7 +5450,7 @@ var tui;
                 }
 
                 $(this._btnThumb).mousedown(function (e) {
-                    if (!tui.isLButton(e.button))
+                    if (!tui.isLButton(e))
                         return;
                     beginX = e.clientX;
                     beginY = e.clientY;
@@ -5897,7 +5971,10 @@ var tui;
                 this._noRefresh = false;
                 this._initialized = false;
                 //private _initInterval = null;
+                // Following variables are very useful when grid switch to edit mode
+                // because grid cell need spend more time to draw.
                 this._drawingTimer = null;
+                this._delayDrawing = true;
                 var self = this;
 
                 this.attr("tabIndex", "0");
@@ -5920,21 +5997,25 @@ var tui;
                 this._space = document.createElement("span");
                 this._space.className = "tui-scroll-space";
                 this[0].appendChild(this._space);
-
+                var scrollTimeDelay = (tui.ieVer > 8 ? 100 : 50);
                 this._vscroll.on("scroll", function (data) {
-                    var diff = Math.abs(data["value"] - self._scrollTop);
-                    self._scrollTop = data["value"];
-                    if (diff < 3 * self._lineHeight && self._drawingTimer === null) {
+                    if (!self._delayDrawing) {
+                        self._scrollTop = data["value"];
                         self.drawLines();
                     } else {
-                        self.drawLines(true);
-                        if (self._drawingTimer !== null)
-                            clearTimeout(self._drawingTimer);
-                        self._drawingTimer = setTimeout(function () {
-                            self.clearBufferLines();
+                        var diff = Math.abs(data["value"] - self._scrollTop);
+                        self._scrollTop = data["value"];
+                        if (diff < 3 * self._lineHeight && self._drawingTimer === null) {
                             self.drawLines();
-                            self._drawingTimer = null;
-                        }, 40);
+                        } else {
+                            self.drawLines(true);
+                            clearTimeout(self._drawingTimer);
+                            self._drawingTimer = setTimeout(function () {
+                                self.clearBufferLines();
+                                self.drawLines();
+                                self._drawingTimer = null;
+                            }, scrollTimeDelay);
+                        }
                     }
                 });
                 this._hscroll.on("scroll", function (data) {
@@ -6074,6 +6155,10 @@ var tui;
                         }
                     }
                 });
+
+                if (this.hasAttr("data-delay-drawing"))
+                    this._delayDrawing = this.is("data-delay-drawing");
+
                 var predefined = this.attr("data-data");
                 if (predefined)
                     predefined = eval("(" + predefined + ")");
@@ -6350,7 +6435,7 @@ var tui;
                 if (col.sort) {
                     $(cell).addClass("tui-grid-sortable");
                     $(cell).mousedown(function (event) {
-                        if (!tui.isLButton(event.button))
+                        if (!tui.isLButton(event))
                             return;
                         if (self._sortColumn !== colIndex)
                             self.sort(colIndex);
@@ -6454,64 +6539,256 @@ var tui;
                 return this._selectrows.indexOf(rowIndex) >= 0;
             };
 
-            Grid.prototype.drawLine = function (line, index, bindEvent, empty) {
-                if (typeof bindEvent === "undefined") { bindEvent = false; }
-                if (typeof empty === "undefined") { empty = false; }
-                var self = this;
+            Grid.prototype.drawLine = function (line, index, empty) {
                 var columns = this.myColumns();
-                var data = this.myData();
 
-                //var rowData = data.at(index);
                 if (line.childNodes.length !== columns.length) {
                     line.innerHTML = "";
+                    var rowSel = this.rowselectable();
                     for (var i = 0; i < columns.length; i++) {
                         var cell = document.createElement("span");
-                        if (this.rowselectable())
+                        if (rowSel)
                             cell.setAttribute("unselectable", "on");
                         cell.className = "tui-grid-cell tui-grid-" + this._tableId + "-" + i;
-                        var contentSpan = document.createElement("span");
-                        contentSpan.className = "tui-grid-cell-content";
-                        cell.appendChild(contentSpan);
                         line.appendChild(cell);
                     }
                 }
-                if (!empty) {
-                    var rowData = data.at(index);
-                    for (var i = 0; i < line.childNodes.length; i++) {
-                        var cell = line.childNodes[i];
-                        var col = columns[i];
-                        var key = null;
-                        if (typeof col.key !== tui.undef)
-                            key = data.mapKey(col.key);
-                        var value = (key !== null && rowData ? rowData[key] : "");
-                        this.drawCell(cell, cell.firstChild, col, key, value, rowData, index, i);
-                    }
+                if (empty) {
+                    return;
                 }
 
-                if (!bindEvent)
-                    return;
-                $(line).on("contextmenu", function (e) {
-                    var index = line["_rowIndex"];
+                var self = this;
+                var data = this.myData();
+                var rowData = data.at(index);
+                for (var i = 0; i < line.childNodes.length; i++) {
+                    var cell = line.childNodes[i];
+                    cell.innerHTML = "";
+                    var contentSpan = document.createElement("span");
+                    contentSpan.className = "tui-grid-cell-content";
+                    cell.appendChild(contentSpan);
+                    var col = columns[i];
+                    var key = null;
+                    if (typeof col.key !== tui.undef)
+                        key = data.mapKey(col.key);
+                    var value = (key !== null && rowData ? rowData[key] : "");
+                    this.drawCell(cell, contentSpan, col, key, value, rowData, index, i);
+                }
+                var jqLine = $(line);
+                jqLine.on("contextmenu", function (e) {
                     self.fire("rowcontextmenu", { "event": e, "index": index, "row": line });
                 });
-                $(line).mousedown(function (e) {
-                    var index = line["_rowIndex"];
+                var dragIndex = null;
+                var mouseDownPt = null;
+                jqLine.mousedown(function (e) {
                     if (self.rowselectable()) {
                         self.activerow(index);
                         self.scrollTo(index);
                     }
-                    self.fire("rowmousedown", { "event": e, "index": index, "row": line });
+                    if (self.fire("rowmousedown", { "event": e, "index": index, "row": line }) === false)
+                        return;
+                    if (self.rowdraggable() && tui.isLButton(e)) {
+                        mouseDownPt = { x: e.clientX, y: e.clientY };
+                        dragIndex = null;
+                        function testdrag(e) {
+                            if (mouseDownPt === null || dragIndex !== null) {
+                                return;
+                            }
+                            if (Math.abs(e.clientX - mouseDownPt.x) < 5 && Math.abs(e.clientY - mouseDownPt.y) < 5) {
+                                return;
+                            }
+                            if (self.fire("rowdragstart", { "event": e, "index": index, "row": line }) === false)
+                                return;
+                            jqLine.addClass("tui-grid-line-drag");
+                            dragIndex = index;
+                            var m = tui.mask();
+                            m.setAttribute("data-cursor-tooltip", "true");
+                            self.focus();
+
+                            // DRAG A LINE
+                            var upTimer = null;
+                            var downTimer = null;
+                            var firstScroll = true;
+                            var lineHeight = self.lineHeight();
+                            var headHeight = self.headHeight();
+                            var targetBox = document.createElement("div");
+                            var targetIndex = null;
+                            var position = null;
+                            targetBox.className = "tui-grid-line-drop";
+
+                            function fireBefore(targetLine) {
+                                if (self.fire("rowdragover", { "event": e, "index": dragIndex, "targetIndex": targetIndex, position: "before" }) !== false) {
+                                    targetBox.style.top = targetLine.offsetTop - 2 + "px";
+                                    targetBox.style.height = "3px";
+                                    targetBox.className = "tui-grid-line-drop-before";
+                                    m.setAttribute("data-tooltip", "<i class='fa fa-level-up'></i> Move before ...");
+                                    position = "before";
+                                    return true;
+                                } else
+                                    return false;
+                            }
+                            function fireAfter(targetLine) {
+                                if (self.fire("rowdragover", { "event": e, "index": dragIndex, "targetIndex": targetIndex, position: "after" }) !== false) {
+                                    targetBox.style.top = targetLine.offsetTop + targetLine.offsetHeight - 2 + "px";
+                                    targetBox.style.height = "3px";
+                                    targetBox.className = "tui-grid-line-drop-after";
+                                    m.setAttribute("data-tooltip", "<i class='fa fa-level-down'></i> Move after ...");
+                                    position = "after";
+                                    return true;
+                                } else
+                                    return false;
+                            }
+                            function fireInside(targetLine) {
+                                if (self.fire("rowdragover", { "event": e, "index": dragIndex, "targetIndex": targetIndex, position: "inside" }) !== false) {
+                                    targetBox.style.top = targetLine.offsetTop - 2 + "px";
+                                    targetBox.style.height = targetLine.clientHeight + "px";
+                                    targetBox.className = "tui-grid-line-drop";
+                                    m.setAttribute("data-tooltip", "<i class='fa fa-arrow-right'></i> Move into ...");
+                                    position = "inside";
+                                    return true;
+                                } else
+                                    return false;
+                            }
+                            function move(e) {
+                                if (!tui.isLButton(e)) {
+                                    targetIndex = null;
+                                    position = null;
+                                    release(e, true);
+                                    return;
+                                }
+                                var x = e.clientX;
+                                var y = e.clientY;
+                                var pos = tui.fixedPosition(self[0]);
+                                if (x < pos.x || x > pos.x + self[0].offsetWidth || y < pos.y || y > pos.y + self[0].offsetHeight) {
+                                    m.style.cursor = "not-allowed";
+                                } else
+                                    m.style.cursor = "move";
+
+                                if (y < pos.y + headHeight) {
+                                    clearInterval(downTimer);
+                                    downTimer = null;
+                                    upTimer === null && (upTimer = setInterval(function () {
+                                        if (firstScroll)
+                                            self.scrollTo(self._bufferedBegin);
+                                        else if (self._bufferedBegin > 0) {
+                                            self.scrollTo(self._bufferedBegin - 1);
+                                        }
+                                        firstScroll = false;
+                                    }, 80)) && (firstScroll = true);
+                                    tui.removeNode(targetBox);
+                                    targetIndex = null;
+                                    position = null;
+                                    m.removeAttribute("data-tooltip");
+                                } else if (y > pos.y + self[0].offsetHeight) {
+                                    clearInterval(upTimer);
+                                    upTimer = null;
+                                    downTimer === null && (downTimer = setInterval(function () {
+                                        if (firstScroll)
+                                            self.scrollTo(self._bufferedEnd - 1);
+                                        else if (self._bufferedEnd <= self._data.length()) {
+                                            self.scrollTo(self._bufferedEnd - 1);
+                                        }
+                                        firstScroll = false;
+                                    }, 80)) && (firstScroll = true);
+                                    tui.removeNode(targetBox);
+                                    targetIndex = null;
+                                    position = null;
+                                    m.removeAttribute("data-tooltip");
+                                } else {
+                                    clearInterval(downTimer);
+                                    clearInterval(upTimer);
+                                    downTimer = null;
+                                    upTimer = null;
+
+                                    // Use mouse position to detect which row is currently moved to.
+                                    var base = headHeight - self._scrollTop % lineHeight;
+                                    targetIndex = Math.floor((y - (pos.y + base)) / lineHeight);
+
+                                    var targetLine = self._bufferedLines[targetIndex];
+                                    if (!targetLine) {
+                                        targetIndex = self._bufferedEnd - 1;
+                                        return;
+                                    } else
+                                        targetIndex += self._bufferedBegin;
+                                    if (targetIndex === dragIndex) {
+                                        tui.removeNode(targetBox);
+                                        targetIndex = null;
+                                        return;
+                                    }
+
+                                    pos = tui.fixedPosition(targetLine);
+                                    targetBox.style.left = targetLine.offsetLeft - 2 + "px";
+                                    targetBox.style.width = targetLine.offsetWidth + "px";
+                                    if (y - pos.y <= 12) {
+                                        if (!fireBefore(targetLine))
+                                            fireInside(targetLine);
+                                    } else if (pos.y + targetLine.offsetHeight - y <= 12) {
+                                        if (!fireAfter(targetLine))
+                                            fireInside(targetLine);
+                                    } else {
+                                        if (!fireInside(targetLine)) {
+                                            if (y - pos.y <= lineHeight / 2)
+                                                fireBefore(targetLine);
+                                            else
+                                                fireAfter(targetLine);
+                                        }
+                                    }
+                                    self[0].appendChild(targetBox);
+                                }
+                            }
+                            function release(env, canceled) {
+                                jqLine.removeClass("tui-grid-line-drag");
+                                console.debug("mouse release");
+                                mouseDownPt = null;
+                                clearInterval(downTimer);
+                                clearInterval(upTimer);
+                                downTimer = null;
+                                upTimer = null;
+                                tui.removeNode(targetBox);
+                                $(m).off("mousemove", move);
+                                $(m).off("mouseup", release);
+                                $(document).off("mouseup", release);
+                                $(self[0]).off("keydown", keydown);
+                                tui.unmask();
+                                tui.closeTooltip();
+                                self.fire("rowdragend", { "event": env, "index": dragIndex, "targetIndex": targetIndex, position: position, canceled: !!canceled });
+                                dragIndex = null;
+                            }
+                            function keydown(e) {
+                                if (e.keyCode === tui.KEY_ESC) {
+                                    targetIndex = null;
+                                    position = null;
+                                    release(e, true);
+                                    e.stopPropagation();
+                                }
+                            }
+                            $(m).on("mousemove", move);
+                            $(m).on("mouseup", release);
+                            $(document).on("mouseup", release);
+                            $(self[0]).on("keydown", keydown);
+                        }
+                        function release() {
+                            mouseDownPt = null;
+                            $(document).off("mouseup", release);
+                            $(document).off("mousemove", testdrag);
+                        }
+                        $(document).on("mouseup", release);
+                        $(document).on("mousemove", testdrag);
+                    }
+                    //	e.stopPropagation();
                 });
-                $(line).mouseup(function (e) {
-                    var index = line["_rowIndex"];
+                jqLine.mouseenter(function (e) {
+                    self.fire("rowmouseenter", { "event": e, "index": index, "row": line });
+                });
+                jqLine.mouseleave(function (e) {
+                    self.fire("rowmouseleave", { "event": e, "index": index, "row": line });
+                });
+                jqLine.mouseup(function (e) {
                     self.fire("rowmouseup", { "event": e, "index": index, "row": line });
                 });
-                $(line).on("click", function (e) {
-                    var index = line["_rowIndex"];
+                jqLine.on("click", function (e) {
                     self.fire("rowclick", { "event": e, "index": index, "row": line });
                 });
-                $(line).on("dblclick", function (e) {
-                    var index = line["_rowIndex"];
+                jqLine.on("dblclick", function (e) {
                     self.fire("rowdblclick", { "event": e, "index": index, "row": line });
                 });
             };
@@ -6537,10 +6814,10 @@ var tui;
                     } else {
                         var line = document.createElement("div");
                         line.className = "tui-grid-line";
-                        this[0].insertBefore(line, this._headline);
+                        this[0].appendChild(line);
                         newBuffer.push(line);
                         line["_rowIndex"] = i;
-                        this.drawLine(line, i, true, empty);
+                        this.drawLine(line, i, empty);
                         this.moveLine(line, i - begin, base);
                     }
                     if (this.isRowSelected(i)) {
@@ -6729,6 +7006,15 @@ var tui;
                 this.refresh();
             };
 
+            Grid.prototype.delayDrawing = function (val) {
+                if (typeof val === "boolean") {
+                    this.is("data-delay-drawing", val);
+                    this._delayDrawing = val;
+                    return this;
+                } else
+                    return this._delayDrawing;
+            };
+
             Grid.prototype.hasHScroll = function (val) {
                 if (typeof val === "boolean") {
                     this.is("data-has-hscroll", val);
@@ -6772,6 +7058,14 @@ var tui;
                     return this;
                 } else
                     return this.is("data-rowselectable");
+            };
+
+            Grid.prototype.rowdraggable = function (val) {
+                if (typeof val === "boolean") {
+                    this.is("data-rowdraggable", val);
+                    return this;
+                } else
+                    return this.is("data-rowdraggable");
             };
 
             Grid.prototype.scrollTo = function (rowIndex) {
@@ -7059,10 +7353,12 @@ var tui;
                 if (data.rowIndex < data.grid.data().length() - 1)
                     data.grid.editCell(data.rowIndex + 1, data.colIndex);
                 e.stopPropagation();
+                e.preventDefault();
             } else if (k === tui.KEY_UP) {
                 if (data.rowIndex > 0)
                     data.grid.editCell(data.rowIndex - 1, data.colIndex);
                 e.stopPropagation();
+                e.preventDefault();
             } else if (k === tui.KEY_LEFT) {
                 if (type !== "text" || e.ctrlKey) {
                     col = data.colIndex - 1;
@@ -7154,11 +7450,10 @@ var tui;
                     handleKeyDownEvent(e, data, type);
                 });
 
-                editor.value(data.value);
                 editor[0].style.width = $(data.cell).innerWidth() - 1 + "px";
-                editor[0].style.height = $(data.cell).innerHeight() + "px";
+                editor[0].style.height = $(data.cell).innerHeight() - 1 + "px";
                 data.cell.appendChild(editor[0]);
-                editor.refresh();
+                editor.value(data.value);
             };
         }
 
@@ -7208,7 +7503,7 @@ var tui;
                                 var isExpanded = !!info.row[_this._expandColumnKey];
                                 var hasCheckbox = (typeof info.row[_this._checkedColumnKey] !== tui.undef);
                                 var isChecked = !!info.row[_this._checkedColumnKey];
-                                var hasChild = !!info.row[_this._childrenColumKey];
+                                var hasChild = !!info.row[_this._childrenColumKey] && info.row[_this._childrenColumKey].length > 0;
                                 var isHalfChecked = (_this.triState() && info.row[_this._checkedColumnKey] === 2 /* HalfChecked */);
                                 var spaceSpan = document.createElement("span");
 
@@ -7252,26 +7547,41 @@ var tui;
                         }]);
                 }
                 this._grid.on("rowclick", function (data) {
-                    _this.fire("rowclick", data);
+                    return _this.fire("rowclick", data);
                 });
                 this._grid.on("rowdblclick", function (data) {
-                    _this.fire("rowdblclick", data);
+                    return _this.fire("rowdblclick", data);
                 });
                 this._grid.on("rowmousedown", function (data) {
-                    _this.fire("rowmousedown", data);
+                    return _this.fire("rowmousedown", data);
+                });
+                this._grid.on("rowdragstart", function (data) {
+                    return _this.fire("rowdragstart", data);
+                });
+                this._grid.on("rowdragover", function (data) {
+                    return _this.fire("rowdragover", data);
+                });
+                this._grid.on("rowdragend", function (data) {
+                    return _this.fire("rowdragend", data);
                 });
                 this._grid.on("rowmouseup", function (data) {
-                    _this.fire("rowmouseup", data);
+                    return _this.fire("rowmouseup", data);
+                });
+                this._grid.on("rowmouseenter", function (data) {
+                    return _this.fire("rowmouseenter", data);
+                });
+                this._grid.on("rowmouseleave", function (data) {
+                    return _this.fire("rowmouseleave", data);
                 });
                 this._grid.on("rowcontextmenu", function (data) {
-                    _this.fire("rowcontextmenu", data);
+                    return _this.fire("rowcontextmenu", data);
                 });
                 this._grid.on("resizecolumn", function (data) {
-                    _this.fire("resizecolumn", data);
+                    return _this.fire("resizecolumn", data);
                 });
                 this._grid.on("keydown", function (data) {
                     if (_this.fire("keydown", data) === false)
-                        return;
+                        return false;
                     var keyCode = data["event"].keyCode;
                     if (keyCode === 32) {
                         var activeRowIndex = self._grid.activerow();
@@ -7317,9 +7627,10 @@ var tui;
                             _this.onCheckRow(row, activeRowIndex, data["event"]);
                         }
                     }
-                    _this.fire("keyup", data);
+                    return _this.fire("keyup", data);
                 });
-
+                if (!this.hasAttr("data-delay-drawing"))
+                    this.delayDrawing(false);
                 if (!this.hasAttr("data-rowselectable"))
                     this.rowselectable(true);
                 if (!this.hasAttr("data-rowcheckable"))
@@ -7398,10 +7709,24 @@ var tui;
                 this.refresh();
             };
 
+            List.prototype.expandRow = function (rowIndex) {
+                var row = this.data().at(rowIndex);
+                row[this._expandColumnKey] = true;
+                this.formatData();
+                this.fire("rowexpand", { row: row, index: rowIndex });
+            };
+
             List.prototype.onExpandRow = function (row, rowIndex, event) {
                 row[this._expandColumnKey] = true;
                 this.formatData();
                 this.fire("rowexpand", { event: event, row: row, index: rowIndex });
+            };
+
+            List.prototype.foldRow = function (rowIndex) {
+                var row = this.data().at(rowIndex);
+                row[this._expandColumnKey] = false;
+                this.formatData();
+                this.fire("rowfold", { row: row, index: rowIndex });
             };
 
             List.prototype.onFoldRow = function (row, rowIndex, event) {
@@ -7642,12 +7967,20 @@ var tui;
                 this._grid.autofitColumn(columnIndex, expandOnly, displayedOnly);
             };
 
+            List.prototype.delayDrawing = function (val) {
+                return this._grid.delayDrawing(val);
+            };
+
             List.prototype.hasHScroll = function (val) {
                 return this._grid.hasHScroll(val);
             };
 
             List.prototype.columns = function (val) {
                 return this._grid.columns(val);
+            };
+
+            List.prototype.rowdraggable = function (val) {
+                return this._grid.rowdraggable(val);
             };
 
             List.prototype.rowselectable = function (val) {
@@ -7865,10 +8198,9 @@ var tui;
                 }
                 if (!this.hasAttr("data-label-click"))
                     this.useLabelClick(true);
+                if (!this.hasAttr("data-empty-suggestion"))
+                    this.emptySuggestion(true);
                 this.value(this.value());
-                if (!this.hasAttr("data-any-suggestion"))
-                    this.anySuggestion(true);
-                //this.refresh();
             }
             Input.prototype.doSubmit = function () {
                 var formId = this.submitForm();
@@ -8259,7 +8591,7 @@ var tui;
                     this._suggestionPopup && this._suggestionPopup.close();
                     return;
                 }
-                if (!this._data || (!this.anySuggestion() && (!text || text.length === 0))) {
+                if (!this._data || (!this.emptySuggestion() && (!text || text.length === 0))) {
                     this._suggestionPopup && this._suggestionPopup.close();
                     return;
                 }
@@ -8270,7 +8602,9 @@ var tui;
                 var suggestions = [];
                 for (var i = 0; i < this._data.length(); i++) {
                     var val = this._data.cell(i, "value");
-                    var m = val.toLowerCase().indexOf(text.toLowerCase());
+                    var m = -1;
+                    if (typeof val !== tui.undef && val !== null)
+                        m = val.toLowerCase().indexOf(text.toLowerCase());
                     var sug = "";
                     if (m >= 0) {
                         sug += val.substring(0, m);
@@ -8279,8 +8613,8 @@ var tui;
                         suggestions.push({ key: val, value: sug });
                     } else {
                         var k = this._data.cell(i, "key");
-                        if (k) {
-                            m = k.toLowerCase().indexOf(text.toLowerCase());
+                        if (typeof k !== tui.undef && k !== null) {
+                            m = (k + "").toLowerCase().indexOf(text.toLowerCase());
                             if (m >= 0) {
                                 suggestions.push({ key: val, value: val });
                             }
@@ -8413,12 +8747,12 @@ var tui;
                 }
             };
 
-            Input.prototype.anySuggestion = function (val) {
+            Input.prototype.emptySuggestion = function (val) {
                 if (typeof val === "boolean") {
-                    this.is("data-any-suggestion", val);
+                    this.is("data-empty-suggestion", val);
                     return this;
                 } else
-                    return this.is("data-any-suggestion");
+                    return this.is("data-empty-suggestion");
             };
 
             Input.prototype.maxSuggestions = function (val) {
@@ -8713,6 +9047,23 @@ var tui;
                         this._invalid = false;
                         this._initialized = false;
                         this.refresh();
+                    } else if (type === "custom-select") {
+                        if (val.key && val.value) {
+                            this.attr("data-value", val.key);
+                            this.attr("data-text", val.value);
+                        } else if (val.key) {
+                            this.attr("data-value", val.key);
+                            this.attr("data-text", val.key);
+                        } else if (val.value) {
+                            this.attr("data-value", val.value);
+                            this.attr("data-text", val.value);
+                        } else {
+                            this.attr("data-value", val);
+                            this.attr("data-text", val);
+                        }
+                        this._invalid = false;
+                        this._initialized = false;
+                        this.refresh();
                     } else if (type === "select" || type === "multi-select") {
                         this.selectValue(this.valueToSelect(val));
                     }
@@ -8832,7 +9183,13 @@ var tui;
             };
 
             Input.prototype.refresh = function () {
-                if (!this[0] || this[0].offsetWidth === 0 || this[0].offsetHeight === 0)
+                if (!this[0] || this._initialized)
+                    return;
+
+                // IE8 hack (first get element width or height obtain zero)
+                this[0].offsetWidth || this[0].offsetHeight;
+
+                if (this[0].offsetWidth <= 0 || this[0].offsetHeight <= 0)
                     return;
                 this._initialized = true;
 
@@ -9590,7 +9947,26 @@ var tui;
                     return this.is("data-use-visible");
             };
 
+            Tips.prototype.autoCloseTime = function (val) {
+                if (typeof val === "number") {
+                    if (isNaN(val) || val <= 0)
+                        this.removeAttr("data-auto-close-time");
+                    else
+                        this.attr("data-auto-close-time", Math.floor(val));
+                    return this;
+                } else {
+                    val = parseInt(this.attr("data-auto-close-time"));
+                    if (isNaN(val))
+                        return null;
+                    else if (val <= 0)
+                        return null;
+                    else
+                        return val;
+                }
+            };
+
             Tips.prototype.show = function (msg) {
+                var _this = this;
                 if (typeof msg !== tui.undef) {
                     tui.removeNode(this._closeButton);
                     this[0].innerHTML = msg;
@@ -9598,14 +9974,26 @@ var tui;
                 }
                 this.removeClass("tui-invisible");
                 this.removeClass("tui-hidden");
+                this[0].style.opacity = "0";
+                $(this[0]).animate({ opacity: 1 }, 100, function () {
+                    var autoClose = _this.autoCloseTime();
+                    if (autoClose !== null) {
+                        setTimeout(function () {
+                            _this.close();
+                        }, autoClose);
+                    }
+                });
             };
 
             Tips.prototype.close = function () {
+                var _this = this;
                 this.fire("close", { ctrl: this[0] });
-                if (this.useVisible())
-                    this.addClass("tui-invisible");
-                else
-                    this.addClass("tui-hidden");
+                $(this[0]).animate({ opacity: 0 }, 300, function () {
+                    if (_this.useVisible())
+                        _this.addClass("tui-invisible");
+                    else
+                        _this.addClass("tui-hidden");
+                });
             };
             Tips.CLASS = "tui-tips";
             return Tips;
