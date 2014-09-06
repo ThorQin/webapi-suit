@@ -6,7 +6,7 @@
 
 package com.github.thorqin.webapi.monitor;
 
-import com.github.thorqin.webapi.security.Security;
+import com.github.thorqin.webapi.security.WebSecurityManager;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -130,7 +130,7 @@ public class MonitorService {
 		String q = request.getQueryString();
 		reqInfo.url = request.getRequestURL() + (q == null ? "" : "?" + q);
 		reqInfo.referrerUrl = request.getHeader("Referer");
-		Security.LoginInfo loginInfo = Security.getLoginInfo(request, response);
+		WebSecurityManager.LoginInfo loginInfo = WebSecurityManager.getLoginInfo(request, response);
 		reqInfo.role = loginInfo.role;
 		reqInfo.user = loginInfo.user;
 		reqInfo.serverName = request.getLocalName();

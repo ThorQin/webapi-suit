@@ -30,11 +30,16 @@
     <fileSet encoding="UTF-8">
       <directory>src/main/resources</directory>
       <includes>
-        <include>**/*.shtml</include>
         <include>**/*.config</include>
-        <include>**/*.ssi</include>
       </includes>
     </fileSet>
+    <fileSet encoding="UTF-8">
+      <directory>src/main/ssi</directory>
+      <includes>
+        <include>**/*.shtml</include>
+        <include>**/*.ssi</include>
+      </includes>
+    </fileSet>    
     <fileSet filtered="true" encoding="UTF-8">
       <directory></directory>
       <includes>

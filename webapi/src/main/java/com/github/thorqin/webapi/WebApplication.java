@@ -29,11 +29,11 @@ import com.github.thorqin.webapi.amq.AMQProxy;
 import com.github.thorqin.webapi.database.DBProxy;
 import com.github.thorqin.webapi.database.DBStore;
 import com.github.thorqin.webapi.mail.MailService;
+import com.github.thorqin.webapi.security.WebSecurityManager;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Proxy;
 import java.net.MalformedURLException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -53,6 +53,8 @@ public abstract class WebApplication implements ServletContextListener {
 
 	private ServletContext servletContext;
 	private String dataDirectory = null;
+	private Dispatcher dispatcher = null;
+	private SecurityFilter securityFilter = null;
 	private final Map<String, DBStore> dbMapping = new HashMap<>();
 	private final Map<String, Object> dbProxyMapping = new HashMap<>();
 	private final Map<String, AMQ> amqMapping = new HashMap<>();
@@ -96,10 +98,18 @@ public abstract class WebApplication implements ServletContextListener {
 	public abstract void onShutdown();
 	
 	public final Dispatcher getDispatcher() {
-		return new Dispatcher(this);
+		if (dispatcher == null)
+			dispatcher = new Dispatcher(this);
+		return dispatcher;
 	}
 	public final SecurityFilter getSecurityFilter() {
-		return new SecurityFilter(this);
+		if (securityFilter == null)
+			securityFilter = new SecurityFilter(this);
+		return securityFilter;
+	}
+	
+	public final WebSecurityManager getWebSecurityManager() throws IOException, SQLException, JMSException, URISyntaxException {
+		return WebSecurityManager.getInstance(this);
 	}
 	
 	public final String getDataPath() throws MalformedURLException {

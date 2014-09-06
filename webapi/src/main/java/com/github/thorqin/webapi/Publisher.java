@@ -345,6 +345,8 @@ public final class Publisher {
 	
 	public void deleteEmptyFolder(File path) {
 		File[] children = path.listFiles();
+		if (children == null)
+			return;
 		for (File child : children) {
 			if (child.isDirectory()) {
 				deleteEmptyFolder(child);

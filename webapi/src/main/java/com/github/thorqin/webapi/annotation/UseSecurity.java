@@ -37,5 +37,4 @@ import java.lang.annotation.Target;
 @Target(value={TYPE})
 public @interface UseSecurity {
 	String[] value() default "/*";
-	boolean remoteSync() default true;
 }

@@ -8,7 +8,7 @@ package com.github.thorqin.webapi;
 
 import com.github.thorqin.webapi.monitor.MonitorService;
 import com.github.thorqin.webapi.monitor.RequestInfo;
-import com.github.thorqin.webapi.security.Security;
+import com.github.thorqin.webapi.security.WebSecurityManager;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
@@ -31,7 +31,7 @@ import javax.servlet.http.HttpServletResponse;
 public class SecurityFilter implements Filter {
 
 	private final WebApplication application;
-	private Security security;
+	private WebSecurityManager security;
 	
 	SecurityFilter(WebApplication application) {
 		this.application = application;
@@ -43,10 +43,9 @@ public class SecurityFilter implements Filter {
 	
 	@Override
 	public void init(FilterConfig filterConfig) throws ServletException {
-		boolean remoteSync = Boolean.getBoolean(filterConfig.getInitParameter("remoteSync"));
 		MonitorService.addRef();
 		try {
-			security = Security.getInstance(application, remoteSync);
+			security = WebSecurityManager.getInstance(application);
 		} catch (IOException | SQLException | JMSException | URISyntaxException ex) {
 			throw new ServletException("Initialize 'SecurityFilter' failed, cannot instance 'Sercurity' object.", ex);
 		}

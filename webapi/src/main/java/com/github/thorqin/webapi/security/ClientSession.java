@@ -75,7 +75,7 @@ public class ClientSession implements HttpSession {
 	
 	public static ClientSession newSession(HttpServletRequest request, HttpServletResponse response) {
 		ClientSession inst = new ClientSession(request, response);
-		inst.setMaxInactiveInterval(Security.getMaxSessionInactiveInterval());
+		inst.setMaxInactiveInterval(WebSecurityManager.getMaxSessionInactiveInterval());
 		request.setAttribute("com.github.thorqin.webapi.security.ClientSession", inst);
 		return inst;
 	}

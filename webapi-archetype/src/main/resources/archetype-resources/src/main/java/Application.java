@@ -3,17 +3,19 @@
 #set( $symbol_escape = '\' )
 package ${package};
 
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import com.github.thorqin.webapi.WebLauncher;
+import com.github.thorqin.webapi.WebApplication;
 import com.github.thorqin.webapi.annotation.UseDispatcher;
 import com.github.thorqin.webapi.annotation.UseSecurity;
 
 @UseSecurity
 @UseDispatcher(value="/api/*")
-public class Launcher implements WebLauncher {
+public class Application extends WebApplication {
 	@Override
-	public void onStartup(ServletContext servletContext) 
-			throws ServletException {
+	public void onStartup() {
+	}
+
+	@Override
+	public void onShutdown() {
 	}
 }
+

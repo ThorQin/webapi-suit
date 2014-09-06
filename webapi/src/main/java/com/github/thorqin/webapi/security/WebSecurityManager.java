@@ -27,7 +27,7 @@ package com.github.thorqin.webapi.security;
 import com.github.thorqin.webapi.WebApplication;
 import com.github.thorqin.webapi.amq.AMQ;
 import com.github.thorqin.webapi.database.annotation.DBInterface;
-import com.github.thorqin.webapi.security.Security.MappingInfo.RedirectionURL;
+import com.github.thorqin.webapi.security.WebSecurityManager.MappingInfo.RedirectionURL;
 import static com.github.thorqin.webapi.security.SecuritySetting.RuleAction.allow;
 import static com.github.thorqin.webapi.security.SecuritySetting.RuleAction.deny;
 import com.github.thorqin.webapi.security.SecuritySetting.URLMatcher.RedirectionInfo;
@@ -51,11 +51,10 @@ import org.apache.activemq.ConfigurationException;
  *
  * @author nuo.qin
  */
-public final class Security {
-	private static final Logger logger = Logger.getLogger(Security.class.getName());
-	private static Security instance = null;
+public final class WebSecurityManager {
+	private static final Logger logger = Logger.getLogger(WebSecurityManager.class.getName());
+	private static WebSecurityManager instance = null;
 	private final SecurityConfig config;
-	private final boolean syncFromRemote;
 	private final WebApplication application;
 	private AMQ amq;
 	private AMQ.AsyncReceiver receiver;
@@ -90,9 +89,8 @@ public final class Security {
 				String user, String role, String scenario);
 	}
 
-	private Security(WebApplication application, boolean syncFromRemote) throws IOException, SQLException, JMSException, URISyntaxException {
+	private WebSecurityManager(WebApplication application) throws IOException, SQLException, JMSException, URISyntaxException {
 		this.application = application;
-		this.syncFromRemote = syncFromRemote;
 		config = new SecurityConfig(application);
 		load();
 	}
@@ -110,25 +108,22 @@ public final class Security {
 			}
 		}
 		config.buildMatcher();
-		createReceiver();
 	}
 	
-	public static synchronized Security getInstance(WebApplication application, boolean syncFromRemote)  throws IOException, SQLException, JMSException, URISyntaxException {
+	public static synchronized WebSecurityManager getInstance(WebApplication application)  throws IOException, SQLException, JMSException, URISyntaxException {
 		if (instance != null)
 			return instance;
 		else {
-			Security inst = new Security(application, syncFromRemote);
+			WebSecurityManager inst = new WebSecurityManager(application);
 			instance = inst;
 			return inst;
 		}
 	}
 	
-	private void createReceiver() throws IOException, ConfigurationException, URISyntaxException {
+	public void createReceiver() throws IOException, ConfigurationException, URISyntaxException {
 		if (receiver != null) {
 			receiver.close();
 		}
-		if (!syncFromRemote)
-			return;
 		SecuritySetting setting = config.get();
 		if (setting.amqConfig != null && !setting.amqConfig.isEmpty()) {
 			try {

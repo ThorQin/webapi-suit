@@ -119,8 +119,6 @@ public class WebInitializer implements ServletContainerInitializer {
 					String[] pathList = securityAnno.value();
 					FilterRegistration filterRegistion = ctx.addFilter(
 							"WebApiSecurityFilter" + i, application.getSecurityFilter());
-					filterRegistion.setInitParameter("remoteSync", 
-							String.valueOf(securityAnno.remoteSync()));
 					List<String> validPath = new LinkedList<>();
 					for (String path : pathList) {
 						if (path.trim().length() != 0) {

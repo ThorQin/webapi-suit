@@ -7,6 +7,8 @@
 package com.github.thorqin.webapi.maven.plugin;
 
 import com.github.thorqin.webapi.Publisher;
+import java.io.IOException;
+import java.text.ParseException;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -44,7 +46,7 @@ public class PageCompiler extends AbstractMojo {
 			});
 			publisher.publish();
 			getLog().info("Generated " + generatedCount[0] + " files.");
-		} catch (Exception ex) {
+		} catch (IOException | ParseException ex) {
 			throw new MojoFailureException("Compile SSI pages failed: " + ex.getMessage(), ex);
 		}
 	}

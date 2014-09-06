@@ -9,7 +9,7 @@ package com.github.thorqin.webapi.smc;
 import java.awt.Dialog;
 import java.util.List;
 import javax.swing.JOptionPane;
-import com.github.thorqin.webapi.security.Security;
+import com.github.thorqin.webapi.security.WebSecurityManager;
 import com.github.thorqin.webapi.security.SecuritySetting.Rule;
 import static com.github.thorqin.webapi.security.SecuritySetting.RuleAction.allow;
 import static com.github.thorqin.webapi.security.SecuritySetting.RuleAction.check_db;
