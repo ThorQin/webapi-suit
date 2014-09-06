@@ -28,6 +28,9 @@ import com.github.thorqin.webapi.security.SecuritySetting.Rule;
 import static com.github.thorqin.webapi.security.SecuritySetting.RuleAction.allow;
 import static com.github.thorqin.webapi.security.SecuritySetting.RuleAction.deny;
 import com.github.thorqin.webapi.security.SecuritySetting.URLMatcher;
+import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 class MatcherTableModel extends AbstractTableModel  {
@@ -1103,7 +1106,12 @@ public class EditorDialog extends javax.swing.JDialog {
 				return;
 		} else
 			file = configFile;
-		config.save(file);
+		try {
+			config.save(file);
+		} catch (IOException ex) {
+			JOptionPane.showMessageDialog(null, "Save config file failed.", "Error", JOptionPane.ERROR_MESSAGE);
+			return;
+		}
 		
 		this.dispose();
     }//GEN-LAST:event_buttonOKActionPerformed

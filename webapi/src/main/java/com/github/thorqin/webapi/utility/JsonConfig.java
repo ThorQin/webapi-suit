@@ -5,7 +5,10 @@
  */
 package com.github.thorqin.webapi.utility;
 
+import com.github.thorqin.webapi.WebApplication;
+import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
 
 /**
  *
@@ -15,7 +18,7 @@ public class JsonConfig {
 
 	protected final Class<?> type;
 	protected Object configInstance = null;
-	protected final String configFile;
+	protected final File configFile;
 
 	private static String modifyFileName(String fileName) {
 		if (fileName == null || fileName.isEmpty()) {
@@ -28,20 +31,16 @@ public class JsonConfig {
 	}
 
 	public JsonConfig(String configFile, Class<?> type) throws IOException {
-		this.configFile = configFile;
+		this.configFile = new File(modifyFileName(configFile));
 		this.type = type;
-		load(configFile);
+		load(this.configFile);
 	}
 	
-	public JsonConfig(String configFile, boolean fromResource, Class<?> type) throws IOException {
+	public JsonConfig(WebApplication application, String configFile, Class<?> type)
+			throws IOException, URISyntaxException {
 		this.type = type;
-		if (fromResource) {
-			this.configFile =  JsonConfig.class.getClassLoader().getResource(configFile).toString();
-			loadResource(configFile);
-		} else {
-			this.configFile = configFile;
-			load(configFile);
-		}
+		this.configFile = application.getValidConfigFile(modifyFileName(configFile));
+		load(this.configFile);
 	}
 
 	public JsonConfig(Class<?> type) throws InstantiationException, IllegalAccessException {
@@ -50,14 +49,8 @@ public class JsonConfig {
 		configInstance = type.newInstance();
 	}
 
-	public final void load(String configFile) throws IOException {
-		configFile = modifyFileName(configFile);
+	private void load(File configFile) throws IOException {
 		configInstance = Serializer.loadJsonFile(configFile, type);
-	}
-	
-	public final void loadResource(String configFile) throws IOException {
-		configFile = modifyFileName(configFile);
-		configInstance = Serializer.loadJsonResource(configFile, type);
 	}
 
 	public Object get() {
@@ -68,19 +61,15 @@ public class JsonConfig {
 		configInstance = config;
 	}
 
-	public static void save(Object config, String configFile) {
-		configFile = modifyFileName(configFile);
-		try {
-			Serializer.saveJsonFile(config, configFile, true);
-		} catch (Exception ex) {
-		}
+	public static void save(Object config, File configFile) throws IOException {
+		Serializer.saveJsonFile(config, configFile, true);
 	}
 
-	public void save() {
+	public void save() throws IOException {
 		save(configInstance, configFile);
 	}
 
-	public void save(String configFile) {
-		save(configInstance, configFile);
+	public void save(String configFile) throws IOException {
+		save(configInstance, new File(configFile));
 	}
 }

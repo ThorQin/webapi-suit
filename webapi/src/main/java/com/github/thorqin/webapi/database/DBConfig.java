@@ -1,9 +1,11 @@
 package com.github.thorqin.webapi.database;
 
-import java.io.IOException;
-import java.util.Map;
-import com.github.thorqin.webapi.utility.JsonConfig;
+import com.github.thorqin.webapi.WebApplication;
 import com.github.thorqin.webapi.database.DBConfig.DBSetting.DBSettingItem;
+import com.github.thorqin.webapi.utility.JsonConfig;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.Map;
 
 public class DBConfig extends JsonConfig {
 	public static class DBSetting {
@@ -23,8 +25,8 @@ public class DBConfig extends JsonConfig {
 	
 	private final String configName;
 	
-	public DBConfig(String configName) throws IOException, RuntimeException {
-		super("web.config", true, DBSetting.class);
+	public DBConfig(WebApplication application, String configName) throws IOException, RuntimeException, URISyntaxException {
+		super(application, "web.config", DBSetting.class);
 		if (configName == null || configName.isEmpty())
 			configName = "default";
 		DBSetting setting = (DBSetting)this.configInstance;

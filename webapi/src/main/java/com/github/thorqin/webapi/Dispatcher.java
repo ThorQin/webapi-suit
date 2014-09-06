@@ -1,7 +1,6 @@
 package com.github.thorqin.webapi;
 
 import com.github.thorqin.webapi.amq.AMQ;
-import com.github.thorqin.webapi.amq.AMQProxy;
 import com.github.thorqin.webapi.amq.AMQService;
 import com.github.thorqin.webapi.amq.annotation.AMQInstance;
 import com.github.thorqin.webapi.annotation.Entity;
@@ -15,7 +14,6 @@ import com.github.thorqin.webapi.annotation.WebEntry;
 import com.github.thorqin.webapi.annotation.WebEntry.HttpMethod;
 import com.github.thorqin.webapi.annotation.WebModule;
 import com.github.thorqin.webapi.annotation.WebStartup;
-import com.github.thorqin.webapi.database.DBProxy;
 import com.github.thorqin.webapi.database.DBStore;
 import com.github.thorqin.webapi.database.annotation.DBInstance;
 import com.github.thorqin.webapi.database.annotation.DBInterface;
@@ -38,28 +36,25 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringWriter;
+import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javassist.bytecode.AnnotationsAttribute;
 import javassist.bytecode.ClassFile;
-import javax.jms.JMSException;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
@@ -82,20 +77,20 @@ public final class Dispatcher extends HttpServlet {
 		public Pattern pattern;
 	}
 	
+	private WebApplication application = null;
 	private RuleMatcher<MappingInfo> mapping = null;
 	private List<MappingInfo> startups = null;
 	private List<MappingInfo> cleanups = null;
 	//private Publisher publisher = null;
-	private static final Map<String, DBStore> dbMapping = new HashMap<>();
-	private static final Map<String, Object> dbProxyMapping = new HashMap<>();
-	private static final Map<String, AMQ> amqMapping = new HashMap<>();
-	private static final Map<String, Object> amqProxyMapping = new HashMap<>();
-	private static final Map<String, MailService> mailServiceMapping = new HashMap<>();
-
-	private static final AtomicInteger referenceCount = new AtomicInteger(0);
+	//private static final AtomicInteger referenceCount = new AtomicInteger(0);
 	
-	public Dispatcher() {
+	Dispatcher(WebApplication application) {
 		super();
+		this.application = application;
+	}
+	
+	public WebApplication getApplication() {
+		return this.application;
 	}
 	
 	/**
@@ -104,79 +99,21 @@ public final class Dispatcher extends HttpServlet {
 	 * @return URI of the path
 	 * @throws java.net.URISyntaxException
 	 */
-	public static URI getSitePath(String relativePath) throws URISyntaxException {
-		return Dispatcher.class.getResource("/").toURI();
+	public static URI getClassPath(String relativePath) throws URISyntaxException {
+		return Dispatcher.class.getResource(relativePath).toURI();
 	}
 	
-	public static synchronized MailService getMailService(String configName) throws IOException {
-		if (mailServiceMapping.containsKey(configName))
-			return mailServiceMapping.get(configName);
-		else {
-			MailService service = new MailService(configName);
-			service.start();
-			mailServiceMapping.put(configName, service);
-			return service;
-		}
-	}
 
-	public static synchronized DBStore getDBStore(String configName) throws SQLException, IOException {
-		if (dbMapping.containsKey(configName))
-			return dbMapping.get(configName);
-		else {
-			DBStore db = new DBStore(configName);
-			dbMapping.put(configName, db);
-			return db;
-		}
-			
-	}
-	
-	public static synchronized AMQ getAMQ(String configName) throws JMSException, IOException {
-		if (amqMapping.containsKey(configName))
-			return amqMapping.get(configName);
-		else {
-			AMQ amq = new AMQ(configName);
-			amqMapping.put(configName, amq);
-			return amq;
-		}
-	}
-	
-	@SuppressWarnings("unchecked")
-	public static synchronized <T> T getAMQProxy(String configName, Class<T> interfaceType) throws JMSException, IOException {
-		String key = configName + ":" + interfaceType.getName();
-		if (amqProxyMapping.containsKey(key)) {
-			return (T)amqProxyMapping.get(key);
-		} else {
-			Object instance = Proxy.newProxyInstance(
-					Dispatcher.class.getClassLoader(),
-					new Class<?>[] { interfaceType }, 
-					new AMQProxy(getAMQ(configName)) );
-			amqProxyMapping.put(key, instance);
-			return (T)instance;
-		}
-	}
-	
-	@SuppressWarnings("unchecked")
-	public static synchronized <T> T getDBProxy(String configName, Class<T> interfaceType) throws SQLException, IOException {
-		String key = configName + ":" + interfaceType.getName();
-		if (dbProxyMapping.containsKey(key)) {
-			return (T)dbProxyMapping.get(key);
-		} else {
-			Object instance = Proxy.newProxyInstance(
-					Dispatcher.class.getClassLoader(),
-					new Class<?>[] { interfaceType }, 
-					new DBProxy(getDBStore(configName)) );
-			dbProxyMapping.put(key, instance);
-			return (T)instance;
-		}
-	}
 	
 	
 	@Override
 	public void init(ServletConfig config) throws ServletException {
 		super.init(config);
 		try {
-			routerInfo = ((DispatcherSetting)(new JsonConfig("web.config", true, DispatcherSetting.class).get())).router;
-		} catch (IOException ex) {
+			routerInfo = ((DispatcherSetting)(
+					new JsonConfig(application, 
+							"web.config", DispatcherSetting.class).get())).router;
+		} catch (IOException | URISyntaxException ex) {
 			routerInfo = new DispatcherSetting.RouterInfo();
 		}
 		MonitorService.addRef();
@@ -198,23 +135,15 @@ public final class Dispatcher extends HttpServlet {
 			startups.clear();
 		}
 		
-		referenceCount.incrementAndGet();
+		//referenceCount.incrementAndGet();
 	}
 
 	@Override
 	public void destroy() {
-		int refCount = referenceCount.decrementAndGet();
-		if (refCount <= 0) {
-			for (Map.Entry<String, DBStore> db: dbMapping.entrySet()) {
-				db.getValue().close();
-			}
-			for (Map.Entry<String, AMQ> amq: amqMapping.entrySet()) {
-				amq.getValue().stop();
-			}
-			for (Map.Entry<String, MailService> mail: mailServiceMapping.entrySet()) {
-				mail.getValue().stop();
-			}
-		}
+//		int refCount = referenceCount.decrementAndGet();
+//		if (refCount <= 0) {
+//			
+//		}
 		// Servlet destroy
 		if (cleanups != null && cleanups.size() > 0) {
 			for (MappingInfo info : cleanups) {
@@ -251,7 +180,7 @@ public final class Dispatcher extends HttpServlet {
 				info.method = method;
 				method.setAccessible(true);
 				startups.add(info);
-			} catch (Exception ex) {
+			} catch (IllegalAccessException | InstantiationException | SecurityException ex) {
 				logger.log(Level.SEVERE,
 						"New instance failed: " + clazz.getName() + "." + method.getName(), ex);
 			}
@@ -274,7 +203,7 @@ public final class Dispatcher extends HttpServlet {
 				info.method = method;
 				method.setAccessible(true);
 				cleanups.add(info);
-			} catch (Exception ex) {
+			} catch (IllegalAccessException | InstantiationException | SecurityException ex) {
 				logger.log(Level.SEVERE,
 						"New instance failed: " + clazz.getName() + method.getName(), ex);
 			}
@@ -346,7 +275,7 @@ public final class Dispatcher extends HttpServlet {
 			if (db != null) {
 				if (fieldType.equals(DBStore.class)) {
 					field.setAccessible(true);
-					field.set(inst, getDBStore(db.value()));
+					field.set(inst, application.getDBStore(db.value()));
 					continue;
 				}
 				if (!fieldType.isInterface())
@@ -354,26 +283,26 @@ public final class Dispatcher extends HttpServlet {
 				if (!fieldType.isAnnotationPresent(DBInterface.class))
 					continue;
 				field.setAccessible(true);
-				Object proxyInstance = getDBProxy(db.value(), fieldType);
+				Object proxyInstance = application.getDBProxy(db.value(), fieldType);
 				field.set(inst, proxyInstance);
 			} else if (amq != null) { 
 				if (fieldType.equals(AMQ.class)) {
 					field.setAccessible(true);
-					field.set(inst, getAMQ(amq.value()));
+					field.set(inst, application.getAMQ(amq.value()));
 				} else if (fieldType.equals(AMQService.class)) {
 					field.setAccessible(true);
-					field.set(inst, new AMQService(getAMQ(amq.value())));
+					field.set(inst, new AMQService(application.getAMQ(amq.value())));
 				} else {
 					if (!fieldType.isInterface())
 						continue;
 					field.setAccessible(true);
-					Object proxyInstance = getAMQProxy(amq.value(), fieldType);
+					Object proxyInstance = application.getAMQProxy(amq.value(), fieldType);
 					field.set(inst, proxyInstance);
 				}
 			} else if (mail != null) {
 				if (fieldType.equals(MailService.class)) {
 					field.setAccessible(true);
-					field.set(inst, getMailService(mail.value()));
+					field.set(inst, application.getMailService(mail.value()));
 				}
 			}
 		}
@@ -471,7 +400,7 @@ public final class Dispatcher extends HttpServlet {
 		mapping = new RuleMatcher<>();
 		startups = new LinkedList<>();
 		cleanups = new LinkedList<>();
-		File file = new File(context.getRealPath("/WEB-INF/classes"));
+		File file = new File(getClassPath("/"));
 		scanClasses(file);
 		mapping.build();
 	}
@@ -493,7 +422,7 @@ public final class Dispatcher extends HttpServlet {
 					while ((n = reader.read(buffer)) != -1) {
 						writer.write(buffer, 0, n);
 					}
-				} catch (Exception ex) {
+				} catch (IOException ex) {
 					logger.log(Level.WARNING,
 							"Read http body failed: ", ex);
 				}
@@ -501,7 +430,7 @@ public final class Dispatcher extends HttpServlet {
 			} else {
 				return "";
 			}
-		} catch (Exception e) {
+		} catch (IOException e) {
 			return "";
 		}
 	}
@@ -519,7 +448,7 @@ public final class Dispatcher extends HttpServlet {
 					"WARNING: Cannot deserialize class ''{0}'' from HTTP body: Unsupported post encoding.", paramType.getName());
 				return null;
 			}
-		} catch (Exception ex) {
+		} catch (IOException | ClassCastException | IllegalAccessException | InstantiationException ex) {
 			logger.log(Level.WARNING, 
 					"WARNING: Cannot deserialize class ''{0}'' from HTTP body.", paramType.getName());
 			return null;
@@ -529,7 +458,7 @@ public final class Dispatcher extends HttpServlet {
 	private Object parseFromQueryString(Class<?> paramType, Entity annoEntity, MethodRuntimeInfo mInfo) {
 		try {
 			return Serializer.fromUrlEncoding(mInfo.request.getQueryString(), paramType);
-		} catch (Exception ex) {
+		} catch (UnsupportedEncodingException | IllegalAccessException | InstantiationException ex) {
 			logger.log(Level.WARNING, 
 					"Warnning: Cannot deserialize class ''{0}'' from QueryString.", paramType.getName());
 			return null;
@@ -542,37 +471,37 @@ public final class Dispatcher extends HttpServlet {
 		else if (paramType.equals(Integer.class) || paramType.equals(int.class)) {
 			try {
 				return Integer.valueOf(val);
-			} catch (Exception err) {
+			} catch (NumberFormatException err) {
 				throw new ValidateException("Invalid URL parameter '" + paramName + "': Need an integer value");
 			}
 		} else if (paramType.equals(Long.class) || paramType.equals(long.class)) {
 			try {
 				return Long.valueOf(val);
-			} catch (Exception err) {
+			} catch (NumberFormatException err) {
 				throw new ValidateException("Invalid URL parameter '" + paramName + "': Need an long integer value");
 			}
 		} else if (paramType.equals(Short.class) || paramType.equals(short.class)) {
 			try {
 				return Short.valueOf(val);
-			} catch (Exception err) {
+			} catch (NumberFormatException err) {
 				throw new ValidateException("Invalid URL parameter '" + paramName + "': Need an short integer value");
 			}
 		} else if (paramType.equals(Byte.class) || paramType.equals(byte.class)) {
 			try {
 				return Byte.valueOf(val);
-			} catch (Exception err) {
+			} catch (NumberFormatException err) {
 				throw new ValidateException("Invalid URL parameter '" + paramName + "': Need an byte value");
 			}
 		} else if (paramType.equals(Float.class) || paramType.equals(float.class)) {
 			try {
 				return Float.valueOf(val);
-			} catch (Exception err) {
+			} catch (NumberFormatException err) {
 				throw new ValidateException("Invalid URL parameter '" + paramName + "': Need an float value");
 			}
 		} else if (paramType.equals(Double.class) || paramType.equals(double.class)) {
 			try {
 				return Double.valueOf(val);
-			} catch (Exception err) {
+			} catch (NumberFormatException err) {
 				throw new ValidateException("Invalid URL parameter '" + paramName + "': Need an double value");
 			}
 		} else if (paramType.equals(Boolean.class) || paramType.equals(boolean.class)) {

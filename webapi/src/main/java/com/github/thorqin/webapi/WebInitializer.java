@@ -26,7 +26,6 @@ package com.github.thorqin.webapi;
 import com.github.thorqin.webapi.annotation.Order;
 import com.github.thorqin.webapi.annotation.UseDispatcher;
 import com.github.thorqin.webapi.annotation.UseSecurity;
-import com.github.thorqin.webapi.security.SecurityFilter;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedList;
@@ -66,20 +65,20 @@ class OrderComparetor<T> implements Comparator<T> {
  *
  * @author nuo.qin
  */
-@HandlesTypes(WebLauncher.class)
+@HandlesTypes(WebApplication.class)
 public class WebInitializer implements ServletContainerInitializer {
 	@Override
 	public void onStartup(Set<Class<?>> initializerClasses, 
 			ServletContext ctx) throws ServletException {
-		List<WebLauncher> initializers = new LinkedList<>();
+		List<WebApplication> applications = new LinkedList<>();
 		if (initializerClasses != null) {
 			for (Class<?> waiClass : initializerClasses) {
 				if (!waiClass.isInterface()
 						&& !Modifier.isAbstract(waiClass.getModifiers())
-						&& WebLauncher.class.isAssignableFrom(waiClass)) {
+						&& WebApplication.class.isAssignableFrom(waiClass)) {
 					try {
-						initializers.add((WebLauncher) waiClass.newInstance());
-					} catch (Throwable ex) {
+						applications.add((WebApplication) waiClass.newInstance());
+					} catch (IllegalAccessException | InstantiationException ex) {
 						throw new ServletException(
 								"Failed to instantiate WebApplication class", ex);
 					}
@@ -87,23 +86,22 @@ public class WebInitializer implements ServletContainerInitializer {
 			}
 		}
 
-		if (initializers.isEmpty()) {
+		if (applications.isEmpty()) {
 			ctx.log("No WebApplication types detected on classpath");
 		} else {
-			Collections.sort(initializers, new OrderComparetor<WebLauncher>());
-			ctx.log("WebApplication detected on classpath: " + initializers);
+			Collections.sort(applications, new OrderComparetor<WebApplication>());
+			ctx.log("WebApplication detected on classpath: " + applications);
 			int i = 0;
-			for (WebLauncher initializer : initializers) {
-				initializer.onStartup(ctx);
+			for (WebApplication application : applications) {
+				application.onStartup(ctx);
 				// Adding dispatcher ....
 				UseDispatcher dispatcherAnno = 
-						initializer.getClass().getAnnotation(UseDispatcher.class);
+						application.getClass().getAnnotation(UseDispatcher.class);
 				if (dispatcherAnno != null) {
 					String[] pathList = dispatcherAnno.value();
 					ServletRegistration.Dynamic servletRegistion = ctx.addServlet(
-							"WebApiDispatcher" + i, Dispatcher.class);
+							"WebApiDispatcher" + i, application.getDispatcher());
 					servletRegistion.setLoadOnStartup(0);
-
 					int count = 0;
 					for (String path : pathList) {
 						if (path.trim().length() != 0) {
@@ -116,12 +114,13 @@ public class WebInitializer implements ServletContainerInitializer {
 				}
 				// Adding security filter ...
 				UseSecurity securityAnno = 
-						initializer.getClass().getAnnotation(UseSecurity.class);
+						application.getClass().getAnnotation(UseSecurity.class);
 				if (securityAnno != null) {
 					String[] pathList = securityAnno.value();
 					FilterRegistration filterRegistion = ctx.addFilter(
-							"WebApiSecurityFilter" + i, SecurityFilter.class);
-					filterRegistion.setInitParameter("remoteSync", String.valueOf(securityAnno.remoteSync()));
+							"WebApiSecurityFilter" + i, application.getSecurityFilter());
+					filterRegistion.setInitParameter("remoteSync", 
+							String.valueOf(securityAnno.remoteSync()));
 					List<String> validPath = new LinkedList<>();
 					for (String path : pathList) {
 						if (path.trim().length() != 0) {
@@ -133,6 +132,8 @@ public class WebInitializer implements ServletContainerInitializer {
 					if (pathList.length <= 0)
 						filterRegistion.addMappingForUrlPatterns(null, true, "/*");
 				}
+				
+				ctx.addListener(application);
 			}
 		}
 	}

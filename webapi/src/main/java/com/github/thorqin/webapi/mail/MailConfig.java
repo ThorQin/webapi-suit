@@ -5,10 +5,12 @@
  */
 package com.github.thorqin.webapi.mail;
 
-import java.io.IOException;
-import java.util.Map;
+import com.github.thorqin.webapi.WebApplication;
 import com.github.thorqin.webapi.mail.MailConfig.MailSetting.MailSettingItem;
 import com.github.thorqin.webapi.utility.JsonConfig;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.Map;
 
 /**
  *
@@ -36,8 +38,8 @@ public class MailConfig extends JsonConfig {
 	
 	private final String configName;
 	
-	public MailConfig(String configName) throws IOException {
-		super("web.config", true, MailSetting.class);
+	public MailConfig(WebApplication application, String configName) throws IOException, URISyntaxException {
+		super(application, "web.config", MailSetting.class);
 		if (configName == null || configName.isEmpty())
 			configName = "default";
 		MailSetting setting = (MailSetting)this.configInstance;

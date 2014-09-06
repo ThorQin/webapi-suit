@@ -1,7 +1,10 @@
 package com.github.thorqin.webapi.amq;
 
+import com.github.thorqin.webapi.WebApplication;
+import com.github.thorqin.webapi.utility.Serializer;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.net.URISyntaxException;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 import javax.jms.BytesMessage;
@@ -14,10 +17,8 @@ import javax.jms.MessageConsumer;
 import javax.jms.MessageListener;
 import javax.jms.MessageProducer;
 import javax.jms.Session;
-
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.ConfigurationException;
-import com.github.thorqin.webapi.utility.Serializer;
 
 public class AMQ {
 	private boolean enableTrace = false;
@@ -659,8 +660,8 @@ public class AMQ {
 					throws ConfigurationException, JMSException {
 		init(uri, user, password, defaultAddress, defaultBroadcast);
 	}
-	public AMQ(String configFile) throws ConfigurationException, JMSException, IOException {
-		init(configFile);
+	public AMQ(WebApplication application, String configFile) throws ConfigurationException, JMSException, IOException, URISyntaxException {
+		init(application, configFile);
 	}
 	
 	public void setDefaultAddress(String address) {
@@ -710,8 +711,8 @@ public class AMQ {
 		}
 	}
 
-	private void init(String configFile) throws ConfigurationException, JMSException, IOException {
-		AMQConfig config = new AMQConfig(configFile);
+	private void init(WebApplication application, String configFile) throws ConfigurationException, JMSException, IOException, URISyntaxException {
+		AMQConfig config = new AMQConfig(application, configFile);
 		String uri = config.getActiveMQUri();
 		String user = config.getActiveMQUser();
 		String password = config.getActiveMQPassword();

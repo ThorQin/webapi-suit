@@ -6,10 +6,12 @@
 
 package com.github.thorqin.webapi.amq;
 
-import java.io.IOException;
-import java.util.Map;
-import com.github.thorqin.webapi.utility.JsonConfig;
+import com.github.thorqin.webapi.WebApplication;
 import com.github.thorqin.webapi.amq.AMQConfig.AMQSetting.AMQSettingItem;
+import com.github.thorqin.webapi.utility.JsonConfig;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.Map;
 
 public class AMQConfig extends JsonConfig {
 	public static class AMQSetting {
@@ -24,8 +26,8 @@ public class AMQConfig extends JsonConfig {
 		public Map<String, AMQSettingItem> amq;
 	}
 	private final String configName;
-	public AMQConfig(String configName) throws IOException {
-		super("web.config", true, AMQSetting.class);
+	public AMQConfig(WebApplication application, String configName) throws IOException, URISyntaxException {
+		super(application, "web.config", AMQSetting.class);
 		if (configName == null || configName.isEmpty())
 			configName = "default";
 		AMQSetting setting = (AMQSetting)this.configInstance;

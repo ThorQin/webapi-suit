@@ -24,7 +24,16 @@
 
 package com.github.thorqin.webapi.security;
 
+import com.github.thorqin.webapi.WebApplication;
+import com.github.thorqin.webapi.amq.AMQ;
+import com.github.thorqin.webapi.database.annotation.DBInterface;
+import com.github.thorqin.webapi.security.Security.MappingInfo.RedirectionURL;
+import static com.github.thorqin.webapi.security.SecuritySetting.RuleAction.allow;
+import static com.github.thorqin.webapi.security.SecuritySetting.RuleAction.deny;
+import com.github.thorqin.webapi.security.SecuritySetting.URLMatcher.RedirectionInfo;
+import com.github.thorqin.webapi.utility.Serializer;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -35,14 +44,7 @@ import javax.jms.JMSException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-import com.github.thorqin.webapi.Dispatcher;
-import com.github.thorqin.webapi.amq.AMQ;
-import com.github.thorqin.webapi.database.annotation.DBInterface;
-import com.github.thorqin.webapi.security.Security.MappingInfo.RedirectionURL;
-import static com.github.thorqin.webapi.security.SecuritySetting.RuleAction.allow;
-import static com.github.thorqin.webapi.security.SecuritySetting.RuleAction.deny;
-import com.github.thorqin.webapi.security.SecuritySetting.URLMatcher.RedirectionInfo;
-import com.github.thorqin.webapi.utility.Serializer;
+import org.apache.activemq.ConfigurationException;
 
 
 /**
@@ -54,6 +56,7 @@ public final class Security {
 	private static Security instance = null;
 	private final SecurityConfig config;
 	private final boolean syncFromRemote;
+	private final WebApplication application;
 	private AMQ amq;
 	private AMQ.AsyncReceiver receiver;
 	
@@ -62,13 +65,13 @@ public final class Security {
 		public void onMessage(AMQ.IncomingMessage message) {
 			try {
 				updateSetting((SecuritySetting)message.getBody(SecuritySetting.class));
-			} catch (Exception ex) {
+			} catch (IOException ex) {
 				logger.log(Level.SEVERE, "Receive dynamic configuration failed!.", ex);
 			}
 		}
 	};
 	
-	private synchronized void updateSetting(SecuritySetting setting) {
+	private synchronized void updateSetting(SecuritySetting setting) throws IOException {
 		config.set(setting);
 		config.buildMatcher();
 		config.save();
@@ -87,21 +90,22 @@ public final class Security {
 				String user, String role, String scenario);
 	}
 
-	private Security(boolean syncFromRemote) throws IOException, SQLException, JMSException {
+	private Security(WebApplication application, boolean syncFromRemote) throws IOException, SQLException, JMSException, URISyntaxException {
+		this.application = application;
 		this.syncFromRemote = syncFromRemote;
-		config = new SecurityConfig();
+		config = new SecurityConfig(application);
 		load();
 	}
 	
-	public void load() throws IOException, SQLException, JMSException {
+	public void load() throws IOException, SQLException, JMSException, RuntimeException, URISyntaxException {
 		SecuritySetting setting = config.get();
 		if (setting.dbConfig != null && !setting.dbConfig.isEmpty()) {
 			try {
-				SecurityAPI api = Dispatcher.getDBProxy(setting.dbConfig, SecurityAPI.class);
+				SecurityAPI api = application.getDBProxy(setting.dbConfig, SecurityAPI.class);
 				SecurityConfig aSetting = Serializer.fromJson(api.loadSetting(), SecurityConfig.class);
 				config.set(aSetting);
 				config.save();
-			} catch (Exception ex) {
+			} catch (SQLException | IOException | ClassCastException ex) {
 				logger.log(Level.WARNING, "Load database security setting failed.", ex);
 			}
 		}
@@ -109,17 +113,17 @@ public final class Security {
 		createReceiver();
 	}
 	
-	public static synchronized Security getInstance(boolean syncFromRemote)  throws IOException, SQLException, JMSException {
+	public static synchronized Security getInstance(WebApplication application, boolean syncFromRemote)  throws IOException, SQLException, JMSException, URISyntaxException {
 		if (instance != null)
 			return instance;
 		else {
-			Security inst = new Security(syncFromRemote);
+			Security inst = new Security(application, syncFromRemote);
 			instance = inst;
 			return inst;
 		}
 	}
 	
-	private void createReceiver() throws IOException {
+	private void createReceiver() throws IOException, ConfigurationException, URISyntaxException {
 		if (receiver != null) {
 			receiver.close();
 		}
@@ -128,7 +132,7 @@ public final class Security {
 		SecuritySetting setting = config.get();
 		if (setting.amqConfig != null && !setting.amqConfig.isEmpty()) {
 			try {
-				amq = Dispatcher.getAMQ(setting.amqConfig);
+				amq = application.getAMQ(setting.amqConfig);
 				receiver = amq.createAsyncReceiver(handler);
 			} catch (JMSException ex) {
 				logger.log(Level.SEVERE, "Create AMQ receiver failed.", ex);
@@ -173,10 +177,10 @@ public final class Security {
 					return new CheckPermissionResult(false, rule.name);
 				} else if (setting.dbConfig != null && !setting.dbConfig.trim().isEmpty()) {
 					try {
-						SecurityAPI api = Dispatcher.getDBProxy(setting.dbConfig, SecurityAPI.class);
+						SecurityAPI api = application.getDBProxy(setting.dbConfig, SecurityAPI.class);
 						boolean result = api.checkPermission(resType, resId, operation, user, role, scenario);
 						return new CheckPermissionResult(result, rule.name);
-					} catch (Exception ex) {
+					} catch (SQLException | IOException | RuntimeException | URISyntaxException ex) {
 						logger.log(Level.SEVERE, "Check permission raise a DB exception, access denied!", ex);
 						return new CheckPermissionResult(false, rule.name);
 					}

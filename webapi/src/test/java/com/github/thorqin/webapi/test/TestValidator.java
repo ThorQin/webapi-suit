@@ -45,6 +45,6 @@ public class TestValidator {
 	
 	@Test
 	public void printPath() throws URISyntaxException {
-		System.out.println(Dispatcher.getSitePath("/"));
+		System.out.println(Dispatcher.getClassPath("/"));
 	}
 }

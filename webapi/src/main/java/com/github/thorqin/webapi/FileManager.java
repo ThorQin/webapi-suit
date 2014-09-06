@@ -6,6 +6,10 @@
 
 package com.github.thorqin.webapi;
 
+import com.github.thorqin.webapi.utility.Serializer;
+import com.github.thorqin.webapi.utility.UserAgentUtil;
+import com.github.thorqin.webapi.utility.UserAgentUtil.BrowserType;
+import com.github.thorqin.webapi.utility.UserAgentUtil.UserAgentInfo;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -16,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
 import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -24,6 +29,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -31,10 +37,6 @@ import org.apache.commons.fileupload.FileItemIterator;
 import org.apache.commons.fileupload.FileItemStream;
 import org.apache.commons.fileupload.FileUploadException;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
-import com.github.thorqin.webapi.utility.Serializer;
-import com.github.thorqin.webapi.utility.UserAgentUtil;
-import com.github.thorqin.webapi.utility.UserAgentUtil.BrowserType;
-import com.github.thorqin.webapi.utility.UserAgentUtil.UserAgentInfo;
 
 /**
  *
@@ -71,16 +73,6 @@ public class FileManager {
 	public FileManager(File baseDir) {
 		this.uploadDir = baseDir.getAbsolutePath();
 	}
-	
-	public FileManager(HttpServletRequest request, String baseDir) {
-		this(new File(request.getServletContext().getRealPath(baseDir)));
-	}
-	
-	public FileManager(HttpServletRequest request) {
-		this(request, "/WEB-INF/upload");
-	}
-	
-	
 	
 	public void addMime(String suffix, String mimeType) {
 		mime.put(suffix, mimeType);

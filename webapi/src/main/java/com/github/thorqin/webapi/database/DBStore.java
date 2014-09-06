@@ -1,5 +1,6 @@
 package com.github.thorqin.webapi.database;
 
+import com.github.thorqin.webapi.WebApplication;
 import com.github.thorqin.webapi.monitor.MonitorService;
 import com.github.thorqin.webapi.monitor.StatementInfo;
 import com.jolbox.bonecp.BoneCPDataSource;
@@ -10,6 +11,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.net.URISyntaxException;
 import java.security.InvalidParameterException;
 import java.sql.Array;
 import java.sql.CallableStatement;
@@ -551,9 +553,9 @@ public class DBStore {
 	final private String dbURI;
 	final private boolean enableTrace;
 	
-	public DBStore(String profileName) throws SQLException, IOException {
+	public DBStore(WebApplication application, String profileName) throws SQLException, IOException, RuntimeException, URISyntaxException {
 		this.profileName = profileName;
-		DBConfig dbConfig = new DBConfig(profileName);
+		DBConfig dbConfig = new DBConfig(application, profileName);
 		dbDriver = dbConfig.getDBDriver();
 		this.enableTrace = dbConfig.enableTrace();
 		if (dbDriver != null) {

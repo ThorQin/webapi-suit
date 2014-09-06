@@ -4,11 +4,17 @@
  * and open the template in the editor.
  */
 
-package com.github.thorqin.webapi.security;
+package com.github.thorqin.webapi;
 
 import com.github.thorqin.webapi.monitor.MonitorService;
 import com.github.thorqin.webapi.monitor.RequestInfo;
+import com.github.thorqin.webapi.security.Security;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.sql.SQLException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.jms.JMSException;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
@@ -24,15 +30,24 @@ import javax.servlet.http.HttpServletResponse;
  */
 public class SecurityFilter implements Filter {
 
+	private final WebApplication application;
 	private Security security;
+	
+	SecurityFilter(WebApplication application) {
+		this.application = application;
+	}
+	
+	public WebApplication getApplication() {
+		return application;
+	}
 	
 	@Override
 	public void init(FilterConfig filterConfig) throws ServletException {
 		boolean remoteSync = Boolean.getBoolean(filterConfig.getInitParameter("remoteSync"));
 		MonitorService.addRef();
 		try {
-			security = Security.getInstance(remoteSync);
-		} catch (Exception ex) {
+			security = Security.getInstance(application, remoteSync);
+		} catch (IOException | SQLException | JMSException | URISyntaxException ex) {
 			throw new ServletException("Initialize 'SecurityFilter' failed, cannot instance 'Sercurity' object.", ex);
 		}
 	}

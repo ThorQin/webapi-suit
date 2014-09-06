@@ -6,6 +6,7 @@
 
 package com.github.thorqin.webapi.mail;
 
+import com.github.thorqin.webapi.WebApplication;
 import com.github.thorqin.webapi.monitor.MailInfo;
 import com.github.thorqin.webapi.monitor.MonitorService;
 import com.github.thorqin.webapi.utility.StringUtil;
@@ -13,6 +14,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URISyntaxException;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
@@ -67,8 +69,8 @@ public class MailService {
 	private final Mail stopMail = new Mail();
 	
 	
-	public MailService(String config) throws IOException {
-		serverConfig = new MailConfig(config);
+	public MailService(WebApplication application, String config) throws IOException, URISyntaxException {
+		serverConfig = new MailConfig(application, config);
 	}
 	
 	private void doSendMail(Mail mail) {

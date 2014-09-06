@@ -8,6 +8,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -206,8 +207,20 @@ public class Serializer {
 	public static <T> void saveJsonFile(T obj, String filename) throws IOException {
 		saveJsonFile(obj, filename, false);
 	}
+	public static <T> void saveJsonFile(T obj, File file) throws IOException {
+		saveJsonFile(obj, file, false);
+	}	
 	public static <T> void saveJsonFile(T obj, String filename, boolean prettyPrint) throws IOException {
 		try (OutputStream stream = new FileOutputStream(filename); 
+				OutputStreamWriter writer = new OutputStreamWriter(stream, "utf-8")) {
+			if (prettyPrint)
+				gsonPrettyPrinting.toJson(obj, writer);
+			else
+				gson.toJson(obj, writer);
+		}
+	}
+	public static <T> void saveJsonFile(T obj, File file, boolean prettyPrint) throws IOException {
+		try (OutputStream stream = new FileOutputStream(file); 
 				OutputStreamWriter writer = new OutputStreamWriter(stream, "utf-8")) {
 			if (prettyPrint)
 				gsonPrettyPrinting.toJson(obj, writer);
@@ -296,6 +309,13 @@ public class Serializer {
 	
 	public static <T> T loadJsonFile(String filename, Type type) throws IOException, ClassCastException {
 		try (InputStream in = new FileInputStream(filename);
+				InputStreamReader reader = new InputStreamReader(in, "utf-8")) {
+			return fromJson(reader, type);
+		}
+	}
+	
+	public static <T> T loadJsonFile(File file, Type type) throws IOException, ClassCastException {
+		try (InputStream in = new FileInputStream(file);
 				InputStreamReader reader = new InputStreamReader(in, "utf-8")) {
 			return fromJson(reader, type);
 		}
