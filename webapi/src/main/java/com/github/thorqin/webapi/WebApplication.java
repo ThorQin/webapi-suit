@@ -112,15 +112,19 @@ public abstract class WebApplication implements ServletContextListener {
 		return WebSecurityManager.getInstance(this);
 	}
 	
-	public final String getDataPath() throws MalformedURLException {
+	public final String getDataPath() throws MalformedURLException, URISyntaxException {
 		if (dataDirectory != null) {
 			return dataDirectory;
 		} else {
-			return servletContext.getResource("/WEB-INF").toString();
+			File dataPath = new File(servletContext.getResource("/WEB-INF/").toURI());
+			
+			dataPath = new File(dataPath.getAbsolutePath() + "/data");
+			dataPath.mkdirs();
+			return dataPath.getAbsolutePath();
 		}
 	}
 	
-	public final String getDataPath(String subDir) throws MalformedURLException {
+	public final String getDataPath(String subDir) throws MalformedURLException, URISyntaxException {
 		String baseDir = getDataPath();
 		if (subDir.startsWith("/") || subDir.startsWith("\\")) {
 			if (baseDir.endsWith("/") || baseDir.endsWith("\\"))
@@ -136,24 +140,15 @@ public abstract class WebApplication implements ServletContextListener {
 	}
 	
 	public final File getValidConfigFile(String configFile) throws URISyntaxException {
-		if (dataDirectory != null) {
-			File config;
-			if (configFile.startsWith("/") || configFile.startsWith("\\")) {
-				if (dataDirectory.endsWith("/") || dataDirectory.endsWith("\\"))
-					config = new File(dataDirectory + configFile.substring(1));
-				else
-					config = new File(dataDirectory + configFile);
-			} else {
-				if (dataDirectory.endsWith("/") || dataDirectory.endsWith("\\"))
-					config = new File(dataDirectory + configFile);
-				else
-					config = new File(dataDirectory + "/" + configFile);
-			}
-			if (config.canRead())
+		try {
+			String path = getDataPath(configFile);
+			File config = new File(path);
+			if (config.exists() && config.canRead()) {
 				return config;
-			else
+			} else {
 				return new File(WebApplication.class.getClassLoader().getResource(configFile).toURI());
-		} else {
+			}
+		} catch (Exception ex) {
 			return new File(WebApplication.class.getClassLoader().getResource(configFile).toURI());
 		}
 	}

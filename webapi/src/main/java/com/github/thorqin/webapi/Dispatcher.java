@@ -3,6 +3,7 @@ package com.github.thorqin.webapi;
 import com.github.thorqin.webapi.amq.AMQ;
 import com.github.thorqin.webapi.amq.AMQService;
 import com.github.thorqin.webapi.amq.annotation.AMQInstance;
+import com.github.thorqin.webapi.annotation.App;
 import com.github.thorqin.webapi.annotation.Entity;
 import static com.github.thorqin.webapi.annotation.Entity.ParseEncoding.EITHER;
 import static com.github.thorqin.webapi.annotation.Entity.ParseEncoding.HTTP_FORM;
@@ -272,7 +273,13 @@ public final class Dispatcher extends HttpServlet {
 			DBInstance db = field.getAnnotation(DBInstance.class);
 			AMQInstance amq = field.getAnnotation(AMQInstance.class);
 			MailInstance mail = field.getAnnotation(MailInstance.class);
-			if (db != null) {
+			App app = field.getAnnotation(App.class);
+			if (app != null) {
+				if (WebApplication.class.isAssignableFrom(fieldType)) {
+					field.setAccessible(true);
+					field.set(inst, application);
+				}
+			} else if (db != null) {
 				if (fieldType.equals(DBStore.class)) {
 					field.setAccessible(true);
 					field.set(inst, application.getDBStore(db.value()));
