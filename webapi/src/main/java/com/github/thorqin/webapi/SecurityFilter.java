@@ -12,8 +12,6 @@ import com.github.thorqin.webapi.security.WebSecurityManager;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.jms.JMSException;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -44,11 +42,7 @@ public class SecurityFilter implements Filter {
 	@Override
 	public void init(FilterConfig filterConfig) throws ServletException {
 		MonitorService.addRef();
-		try {
-			security = WebSecurityManager.getInstance(application);
-		} catch (IOException | SQLException | JMSException | URISyntaxException ex) {
-			throw new ServletException("Initialize 'SecurityFilter' failed, cannot instance 'Sercurity' object.", ex);
-		}
+		security = WebSecurityManager.getInstance(application);
 	}
 
 	@Override
@@ -57,8 +51,10 @@ public class SecurityFilter implements Filter {
 		if (security.checkPermission((HttpServletRequest)request, (HttpServletResponse)response))
 			chain.doFilter(request, response);
 		if (security.getSetting().trace) {
+			WebSecurityManager.LoginInfo loginInfo = security.getLoginInfo((HttpServletRequest)request, 
+					(HttpServletResponse)response);
 			RequestInfo reqInfo = MonitorService.buildRequestInfo((HttpServletRequest)request, 
-					(HttpServletResponse)response, "Security Manager", beginTime);
+					(HttpServletResponse)response, loginInfo, "Security Manager", beginTime);
 			MonitorService.record(reqInfo);
 		}
 	}

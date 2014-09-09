@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceConfigurationError;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -37,8 +38,8 @@ import java.util.logging.Logger;
  * @author nuo.qin
  *
  **********************************************************/
-public class DBStore {
-	private static final Logger logger = Logger.getLogger(DBStore.class.getName());
+public class DBService {
+	private static final Logger logger = Logger.getLogger(DBService.class.getName());
 	private static final Map<Class<?>, Integer> typeMapping;
 	
 	static {
@@ -553,24 +554,28 @@ public class DBStore {
 	final private String dbURI;
 	final private boolean enableTrace;
 	
-	public DBStore(WebApplication application, String profileName) throws SQLException, IOException, RuntimeException, URISyntaxException {
-		this.profileName = profileName;
-		DBConfig dbConfig = new DBConfig(application, profileName);
-		dbDriver = dbConfig.getDBDriver();
-		this.enableTrace = dbConfig.enableTrace();
-		if (dbDriver != null) {
-			boneCP.setDriverClass(dbDriver);
+	public DBService(WebApplication application, String profileName) {
+		try {
+			this.profileName = profileName;
+			DBConfig dbConfig = new DBConfig(application, profileName);
+			dbDriver = dbConfig.getDBDriver();
+			this.enableTrace = dbConfig.enableTrace();
+			if (dbDriver != null) {
+				boneCP.setDriverClass(dbDriver);
+			}
+			dbURI = dbConfig.getDBUri();
+			if (dbURI != null)
+				boneCP.setJdbcUrl(dbURI);
+			if (dbConfig.getDBUser() != null)
+				boneCP.setUsername(dbConfig.getDBUser());
+			if (dbConfig.getDBPassword() != null)
+				boneCP.setPassword(dbConfig.getDBPassword());
+			boneCP.setMinConnectionsPerPartition(dbConfig.getMinConnectionsPerPartition());
+			boneCP.setMaxConnectionsPerPartition(dbConfig.getMaxConnectionsPerPartition());
+			boneCP.setPartitionCount(dbConfig.getPartitionCount());
+		} catch (IOException | RuntimeException | URISyntaxException ex) {
+			throw new ServiceConfigurationError("Initialize DB Service failed.", ex);
 		}
-		dbURI = dbConfig.getDBUri();
-		if (dbURI != null)
-			boneCP.setJdbcUrl(dbURI);
-		if (dbConfig.getDBUser() != null)
-			boneCP.setUsername(dbConfig.getDBUser());
-		if (dbConfig.getDBPassword() != null)
-			boneCP.setPassword(dbConfig.getDBPassword());
-		boneCP.setMinConnectionsPerPartition(dbConfig.getMinConnectionsPerPartition());
-		boneCP.setMaxConnectionsPerPartition(dbConfig.getMaxConnectionsPerPartition());
-		boneCP.setPartitionCount(dbConfig.getPartitionCount());
 	}
 	
 	public void close() {
@@ -950,21 +955,21 @@ public class DBStore {
 
 	public void doWork(DBWork work) throws Exception {
 		if (work != null) {
-			try (DBStore.DBSession session = getSession()) {
+			try (DBService.DBSession session = getSession()) {
 				work.doWork(session);
 			}
 		}
 	}
 	public void doWork(DBWorkWithInput work, Object... params) throws Exception {
 		if (work != null) {
-			try (DBStore.DBSession session = getSession()) {
+			try (DBService.DBSession session = getSession()) {
 				work.doWork(session, params);
 			}
 		}
 	}
 	public Object doWork(DBWorkWithOutput work) throws Exception {
 		if (work != null) {
-			try (DBStore.DBSession session = getSession()) {
+			try (DBService.DBSession session = getSession()) {
 				return work.doWork(session);
 			}
 		} else
@@ -973,7 +978,7 @@ public class DBStore {
 	public Object doWork(DBWorkWithInputAndOutput work, Object... params)
 			throws Exception {
 		if (work != null) {
-			try (DBStore.DBSession session = getSession()) {
+			try (DBService.DBSession session = getSession()) {
 				return work.doWork(session, params);
 			}
 		} else

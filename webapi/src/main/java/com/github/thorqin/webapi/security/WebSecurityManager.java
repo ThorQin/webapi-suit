@@ -38,6 +38,7 @@ import java.net.URLEncoder;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.ServiceConfigurationError;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.jms.JMSException;
@@ -89,10 +90,14 @@ public final class WebSecurityManager {
 				String user, String role, String scenario);
 	}
 
-	private WebSecurityManager(WebApplication application) throws IOException, SQLException, JMSException, URISyntaxException {
+	private WebSecurityManager(WebApplication application) {
 		this.application = application;
-		config = new SecurityConfig(application);
-		load();
+		try {
+			config = new SecurityConfig(application);
+			load();
+		} catch (IOException | URISyntaxException | SQLException | JMSException ex) {
+			throw new ServiceConfigurationError("Initialize WebSecruityManager failed.", ex);
+		}
 	}
 	
 	public void load() throws IOException, SQLException, JMSException, RuntimeException, URISyntaxException {
@@ -110,7 +115,7 @@ public final class WebSecurityManager {
 		config.buildMatcher();
 	}
 	
-	public static synchronized WebSecurityManager getInstance(WebApplication application)  throws IOException, SQLException, JMSException, URISyntaxException {
+	public static synchronized WebSecurityManager getInstance(WebApplication application) {
 		if (instance != null)
 			return instance;
 		else {
@@ -317,9 +322,9 @@ public final class WebSecurityManager {
 		public String role = null;
 	}
 	
-	public static LoginInfo getLoginInfo(HttpServletRequest request, HttpServletResponse response) {
+	public LoginInfo getLoginInfo(HttpServletRequest request, HttpServletResponse response) {
 		LoginInfo info = new LoginInfo();
-		SecuritySetting setting = instance.config.get();
+		SecuritySetting setting = config.get();
 		HttpSession session;
 		if (setting.clientSession) {
 			session = ClientSession.fromCookie(request, response);
@@ -335,10 +340,8 @@ public final class WebSecurityManager {
 		return info;
 	}
 	
-	public static void login(HttpServletRequest request, HttpServletResponse response, String user, String role) {
-		if (instance == null)
-			return;
-		SecuritySetting setting = instance.config.get();
+	public void login(HttpServletRequest request, HttpServletResponse response, String user, String role) {
+		SecuritySetting setting = config.get();
 		if (setting.clientSession) {
 			ClientSession session = ClientSession.getSession(request, response);
 			session.setMaxInactiveInterval(setting.sessionTimeout);
@@ -353,11 +356,9 @@ public final class WebSecurityManager {
 		}
 	}
 	
-	public static void logout(HttpServletRequest request, HttpServletResponse response) {
-		if (instance == null)
-			return;
+	public void logout(HttpServletRequest request, HttpServletResponse response) {
 		try {
-			SecuritySetting setting = instance.config.get();
+			SecuritySetting setting = config.get();
 			if (setting.clientSession) {
 				ClientSession session = ClientSession.fromCookie(request, response);
 				if (session != null)

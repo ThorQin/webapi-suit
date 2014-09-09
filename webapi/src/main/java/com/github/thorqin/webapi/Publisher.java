@@ -37,6 +37,7 @@ public final class Publisher {
 	//private ExecutorService executorService = null;
 	private File monitorPath = null;
 	private File publishPath = null;
+	private final String genFileSuffix;
 	
 	// key: path
 	private final Map<String, SrcInfo> cache = new HashMap<>();
@@ -54,9 +55,10 @@ public final class Publisher {
 	
 	private PublishEventListener listener;
 	
-	public Publisher(String monitorPath, String publishPath) {
+	public Publisher(String monitorPath, String publishPath, String genFileSuffix) {
 		this.monitorPath = new File(monitorPath).getAbsoluteFile();
 		this.publishPath = new File(publishPath).getAbsoluteFile();
+		this.genFileSuffix = genFileSuffix;
 		loadPublished();
 	}
 	
@@ -283,7 +285,11 @@ public final class Publisher {
 				SrcInfo srcInfo = build(path, new Stack<String>());
 				if (srcInfo != null) {
 					newSet.add(srcInfo.key);
-					File destination = new File(absPath(publishPath) + "/" + srcInfo.key);
+					File destination;
+					if (genFileSuffix.equals("shtml"))
+						destination = new File(absPath(publishPath) + "/" + srcInfo.key);
+					else
+						destination = new File(absPath(publishPath) + "/" + srcInfo.key.substring(0, srcInfo.key.length() - 5) + genFileSuffix);
 					if (!destination.exists() || destination.lastModified() < srcInfo.lastModified) {
 						createAllDir(destination);
 						Files.write(destination.toPath(), replaceContextPath(srcInfo.content, level).getBytes("utf-8"));

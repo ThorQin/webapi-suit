@@ -27,8 +27,9 @@ package com.github.thorqin.webapi;
 import com.github.thorqin.webapi.amq.AMQ;
 import com.github.thorqin.webapi.amq.AMQProxy;
 import com.github.thorqin.webapi.database.DBProxy;
-import com.github.thorqin.webapi.database.DBStore;
+import com.github.thorqin.webapi.database.DBService;
 import com.github.thorqin.webapi.mail.MailService;
+import com.github.thorqin.webapi.monitor.MonitorService;
 import com.github.thorqin.webapi.security.WebSecurityManager;
 import java.io.File;
 import java.io.IOException;
@@ -55,7 +56,7 @@ public abstract class WebApplication implements ServletContextListener {
 	private String dataDirectory = null;
 	private Dispatcher dispatcher = null;
 	private SecurityFilter securityFilter = null;
-	private final Map<String, DBStore> dbMapping = new HashMap<>();
+	private final Map<String, DBService> dbMapping = new HashMap<>();
 	private final Map<String, Object> dbProxyMapping = new HashMap<>();
 	private final Map<String, AMQ> amqMapping = new HashMap<>();
 	private final Map<String, Object> amqProxyMapping = new HashMap<>();
@@ -78,7 +79,7 @@ public abstract class WebApplication implements ServletContextListener {
 	@Override
 	public final void contextDestroyed(ServletContextEvent sce) {
 		try {
-			for (Map.Entry<String, DBStore> db: dbMapping.entrySet()) {
+			for (Map.Entry<String, DBService> db: dbMapping.entrySet()) {
 				db.getValue().close();
 			}
 			for (Map.Entry<String, AMQ> amq: amqMapping.entrySet()) {
@@ -102,13 +103,13 @@ public abstract class WebApplication implements ServletContextListener {
 			dispatcher = new Dispatcher(this);
 		return dispatcher;
 	}
-	public final SecurityFilter getSecurityFilter() {
+	final SecurityFilter getSecurityFilter() {
 		if (securityFilter == null)
 			securityFilter = new SecurityFilter(this);
 		return securityFilter;
 	}
 	
-	public final WebSecurityManager getWebSecurityManager() throws IOException, SQLException, JMSException, URISyntaxException {
+	public final WebSecurityManager getSecurityManager() {
 		return WebSecurityManager.getInstance(this);
 	}
 	
@@ -157,7 +158,7 @@ public abstract class WebApplication implements ServletContextListener {
 		dataDirectory = directory;
 	}
 	
-	public final synchronized MailService getMailService(String configName) throws IOException, URISyntaxException {
+	public final synchronized MailService getMailService(String configName) {
 		if (mailServiceMapping.containsKey(configName))
 			return mailServiceMapping.get(configName);
 		else {
@@ -168,15 +169,18 @@ public abstract class WebApplication implements ServletContextListener {
 		}
 	}
 
-	public final synchronized DBStore getDBStore(String configName) throws SQLException, IOException, RuntimeException, URISyntaxException {
+	public final synchronized DBService getDBService(String configName) {
 		if (dbMapping.containsKey(configName))
 			return dbMapping.get(configName);
 		else {
-			DBStore db = new DBStore(this, configName);
+			DBService db = new DBService(this, configName);
 			dbMapping.put(configName, db);
 			return db;
 		}
-			
+	}
+	
+	public final MonitorService getMonitorService() {
+		return MonitorService.getInstance();
 	}
 	
 	public final synchronized AMQ getAMQ(String configName) throws JMSException, IOException, ConfigurationException, URISyntaxException {
@@ -213,7 +217,7 @@ public abstract class WebApplication implements ServletContextListener {
 			Object instance = Proxy.newProxyInstance(
 					WebApplication.class.getClassLoader(),
 					new Class<?>[] { interfaceType }, 
-					new DBProxy(getDBStore(configName)) );
+					new DBProxy(getDBService(configName)) );
 			dbProxyMapping.put(key, instance);
 			return (T)instance;
 		}

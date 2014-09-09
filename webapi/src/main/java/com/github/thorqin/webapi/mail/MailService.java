@@ -20,6 +20,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.ServiceConfigurationError;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -69,8 +70,12 @@ public class MailService {
 	private final Mail stopMail = new Mail();
 	
 	
-	public MailService(WebApplication application, String config) throws IOException, URISyntaxException {
-		serverConfig = new MailConfig(application, config);
+	public MailService(WebApplication application, String config) {
+		try {
+			serverConfig = new MailConfig(application, config);
+		} catch (IOException | URISyntaxException | RuntimeException ex) {
+			throw new ServiceConfigurationError("Initialize MailService failed.", ex);
+		}
 	}
 	
 	private void doSendMail(Mail mail) {

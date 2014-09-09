@@ -8,9 +8,9 @@ package com.github.thorqin.webapi.database;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
-import com.github.thorqin.webapi.database.DBStore.DBOut;
-import com.github.thorqin.webapi.database.DBStore.DBRef;
-import com.github.thorqin.webapi.database.DBStore.DBSession;
+import com.github.thorqin.webapi.database.DBService.DBOut;
+import com.github.thorqin.webapi.database.DBService.DBRef;
+import com.github.thorqin.webapi.database.DBService.DBSession;
 import com.github.thorqin.webapi.database.annotation.DBInterface;
 import com.github.thorqin.webapi.database.annotation.DBProcedure;
 import com.github.thorqin.webapi.utility.StringUtil;
@@ -20,8 +20,8 @@ import com.github.thorqin.webapi.utility.StringUtil;
  * @author nuo.qin
  */
 public class DBProxy implements InvocationHandler {
-	private final DBStore store;
-	public DBProxy(DBStore store) {
+	private final DBService store;
+	public DBProxy(DBService store) {
 		this.store = store;
 	}
 	

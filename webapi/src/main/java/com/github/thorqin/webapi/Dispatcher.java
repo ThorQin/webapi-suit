@@ -15,7 +15,7 @@ import com.github.thorqin.webapi.annotation.WebEntry;
 import com.github.thorqin.webapi.annotation.WebEntry.HttpMethod;
 import com.github.thorqin.webapi.annotation.WebModule;
 import com.github.thorqin.webapi.annotation.WebStartup;
-import com.github.thorqin.webapi.database.DBStore;
+import com.github.thorqin.webapi.database.DBService;
 import com.github.thorqin.webapi.database.annotation.DBInstance;
 import com.github.thorqin.webapi.database.annotation.DBInterface;
 import com.github.thorqin.webapi.mail.MailService;
@@ -23,6 +23,7 @@ import com.github.thorqin.webapi.mail.annotation.MailInstance;
 import com.github.thorqin.webapi.monitor.MonitorService;
 import com.github.thorqin.webapi.monitor.RequestInfo;
 import com.github.thorqin.webapi.security.ClientSession;
+import com.github.thorqin.webapi.security.WebSecurityManager;
 import com.github.thorqin.webapi.utility.JsonConfig;
 import com.github.thorqin.webapi.utility.RuleMatcher;
 import com.github.thorqin.webapi.utility.Serializer;
@@ -280,9 +281,9 @@ public final class Dispatcher extends HttpServlet {
 					field.set(inst, application);
 				}
 			} else if (db != null) {
-				if (fieldType.equals(DBStore.class)) {
+				if (fieldType.equals(DBService.class)) {
 					field.setAccessible(true);
-					field.set(inst, application.getDBStore(db.value()));
+					field.set(inst, application.getDBService(db.value()));
 					continue;
 				}
 				if (!fieldType.isInterface())
@@ -707,8 +708,10 @@ public final class Dispatcher extends HttpServlet {
 			return true;
 		} finally {
 			if (routerInfo.trace) {
+				WebSecurityManager.LoginInfo loginInfo =  application.getSecurityManager()
+						.getLoginInfo((HttpServletRequest)request, (HttpServletResponse)response);
 				RequestInfo reqInfo = MonitorService.buildRequestInfo(
-						request, response, "Dispatcher", beginTime);
+						request, response, loginInfo, "Dispatcher", beginTime);
 				MonitorService.record(reqInfo);
 			}
 		}

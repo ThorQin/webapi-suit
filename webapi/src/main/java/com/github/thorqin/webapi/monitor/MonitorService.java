@@ -31,6 +31,10 @@ public class MonitorService {
 	private long refcount = 0;
 	private final List<Monitor> monitors = new LinkedList<>();
 	
+	public static MonitorService getInstance() {
+		return inst;
+	} 
+	
 	private void start() {
 		if (alive)
 			return;
@@ -119,7 +123,7 @@ public class MonitorService {
 	}
 	
 	public static RequestInfo buildRequestInfo(HttpServletRequest request, 
-			HttpServletResponse response, String recorder, long startTime) {
+			HttpServletResponse response, WebSecurityManager.LoginInfo loginInfo, String recorder, long startTime) {
 		RequestInfo reqInfo = new RequestInfo();
 		reqInfo.recorder = recorder;
 		reqInfo.startTime = startTime;
@@ -130,7 +134,6 @@ public class MonitorService {
 		String q = request.getQueryString();
 		reqInfo.url = request.getRequestURL() + (q == null ? "" : "?" + q);
 		reqInfo.referrerUrl = request.getHeader("Referer");
-		WebSecurityManager.LoginInfo loginInfo = WebSecurityManager.getLoginInfo(request, response);
 		reqInfo.role = loginInfo.role;
 		reqInfo.user = loginInfo.user;
 		reqInfo.serverName = request.getLocalName();
@@ -140,16 +143,16 @@ public class MonitorService {
 		return reqInfo;
 	}
 	
-	public static void addMonitor(Monitor monitor) {
-		for (Monitor h : inst.monitors) {
+	public void addMonitor(Monitor monitor) {
+		for (Monitor h : monitors) {
 			if (h.equals(monitor))
 				return;
 		}
-		inst.monitors.add(monitor);
+		monitors.add(monitor);
 	}
 	
-	public static void removeMonitor(Monitor monitor) {
-		inst.monitors.remove(monitor);
+	public void removeMonitor(Monitor monitor) {
+		monitors.remove(monitor);
 	}
 
 	private synchronized void internalIncreaseRef() {

@@ -30,13 +30,16 @@ public class PageCompiler extends AbstractMojo {
 	@Parameter(defaultValue="${project.build.directory}/${project.build.finalName}")
 	String targetDirectory;
 	
+	@Parameter(defaultValue="shtml")
+	String genFileSuffix;
+	
 	@Override
 	public void execute() throws MojoExecutionException, MojoFailureException {
 		getLog().info("Generate SSI pages...");
 		try {
 			final int[] generatedCount = new int[1];
 			generatedCount[0] = 0;
-			Publisher publisher = new Publisher(ssiDirectory, targetDirectory);
+			Publisher publisher = new Publisher(ssiDirectory, targetDirectory, genFileSuffix);
 			publisher.setPublishEventListener(new Publisher.PublishEventListener() {
 				@Override
 				public void fileCreated(String path) {
