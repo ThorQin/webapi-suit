@@ -95,22 +95,18 @@ public final class WebSecurityManager {
 		try {
 			config = new SecurityConfig(application);
 			load();
-		} catch (IOException | URISyntaxException | SQLException | JMSException ex) {
+		} catch (IOException | URISyntaxException | SQLException ex) {
 			throw new ServiceConfigurationError("Initialize WebSecruityManager failed.", ex);
 		}
 	}
 	
-	public void load() throws IOException, SQLException, JMSException, RuntimeException, URISyntaxException {
+	public void load() throws RuntimeException, URISyntaxException, SQLException, IOException {
 		SecuritySetting setting = config.get();
 		if (setting.dbConfig != null && !setting.dbConfig.isEmpty()) {
-			try {
-				SecurityAPI api = application.getDBProxy(setting.dbConfig, SecurityAPI.class);
-				SecurityConfig aSetting = Serializer.fromJson(api.loadSetting(), SecurityConfig.class);
-				config.set(aSetting);
-				config.save();
-			} catch (SQLException | IOException | ClassCastException ex) {
-				logger.log(Level.WARNING, "Load database security setting failed.", ex);
-			}
+			SecurityAPI api = application.getDBProxy(setting.dbConfig, SecurityAPI.class);
+			SecurityConfig aSetting = Serializer.fromJson(api.loadSetting(), SecurityConfig.class);
+			config.set(aSetting);
+			config.save();
 		}
 		config.buildMatcher();
 	}
@@ -217,9 +213,9 @@ public final class WebSecurityManager {
 						String url = redirectUrl.url;
 						if (redirectUrl.setReference) {
 							if (url.contains("?")) {
-								url += "&ref=" + URLEncoder.encode(path, "utf-8");
+								url += "&ref=" + URLEncoder.encode(request.getContextPath() + path, "utf-8");
 							} else {
-								url += "?ref=" + URLEncoder.encode(path, "utf-8");
+								url += "?ref=" + URLEncoder.encode(request.getContextPath() + path, "utf-8");
 							}
 						}
 						if (url.startsWith("$")) {
