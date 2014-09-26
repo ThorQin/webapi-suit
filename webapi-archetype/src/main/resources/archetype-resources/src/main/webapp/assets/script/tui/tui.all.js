@@ -6238,6 +6238,8 @@ var tui;
                     this._contentWidth = 0;
                     var cols = (columns.length < 1 ? 1 : columns.length);
                     var defaultWidth = Math.floor((innerWidth - this._borderWidth * cols) / cols);
+                    if (defaultWidth < 100)
+                        defaultWidth = 100;
                     for (var i = 0; i < columns.length; i++) {
                         this._contentWidth += Grid.colSize(columns[i].width, defaultWidth) + this._borderWidth;
                     }
@@ -8241,6 +8243,7 @@ var tui;
                     setTimeout(function () {
                         if (_this.text() !== _this._textbox.value) {
                             _this.text(_this._textbox.value);
+                            self.openSuggestion(self._textbox.value);
                             self.fire("change", { "ctrl": _this[0], "event": e, "text": _this.text() });
                         }
                     }, 0);
@@ -8248,6 +8251,7 @@ var tui;
                 $(this._textbox).on("change", function (e) {
                     if (_this.text() !== _this._textbox.value) {
                         _this.text(_this._textbox.value);
+                        self.openSuggestion(self._textbox.value);
                         _this.fire("change", { "ctrl": _this[0], "event": e, "text": _this.text() });
                     }
                 });
@@ -8255,16 +8259,17 @@ var tui;
                     setTimeout(function () {
                         if (_this.text() !== _this._textbox.value) {
                             _this.text(_this._textbox.value);
+                            self.openSuggestion(self._textbox.value);
                             self.fire("change", { "ctrl": self[0], "event": e, "text": self.text() });
                         }
                     }, 0);
                 });
                 $(this._textbox).keydown(function (e) {
-                    if (!tui.CONTROL_KEYS[e.keyCode]) {
-                        setTimeout(function () {
-                            self.openSuggestion(self._textbox.value);
-                        }, 0);
-                    }
+                    //if (!tui.CONTROL_KEYS[e.keyCode]) {
+                    //	setTimeout(function () {
+                    //		self.openSuggestion(self._textbox.value);
+                    //	}, 0);
+                    //}
                     if (self._suggestionList) {
                         var list = self._suggestionList;
                         if (e.keyCode === tui.KEY_DOWN) {
@@ -10059,11 +10064,13 @@ var tui;
                 this._inScrolling = false;
                 this._onScroll = (function () {
                     var self = _this;
+                    var scrollTimer = null;
                     return function (e) {
                         if (self._monitoredParent === null)
                             return;
                         if (self._inScrolling)
                             return;
+
                         var parent = getRealTagetScrollElement(self._monitoredParent);
                         for (var i = 0; i < self._anchors.length; i++) {
                             var elemId = self._anchors[i];
@@ -10071,8 +10078,14 @@ var tui;
                             if (!elem)
                                 continue;
                             var pos = tui.relativePosition(elem, parent);
-                            if (Math.abs(pos.y - parent.scrollTop - self.distance()) <= 20) {
-                                self.value("#" + elem.id);
+                            if (Math.abs(pos.y - parent.scrollTop - self.distance()) <= 100) {
+                                if (scrollTimer != null) {
+                                    clearTimeout(scrollTimer);
+                                    scrollTimer = null;
+                                }
+                                scrollTimer = setTimeout(function () {
+                                    self.value("#" + elem.id);
+                                }, 50);
                                 break;
                             }
                         }
