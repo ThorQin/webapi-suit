@@ -95,7 +95,8 @@
 					<webAppConfig>
 						<defaultsDescriptor>src/main/resources/webdefault.xml</defaultsDescriptor>
 					</webAppConfig>
-					<scanIntervalSeconds>3</scanIntervalSeconds>
+					<!--<scanIntervalSeconds>3</scanIntervalSeconds>-->
+					<reload>manual</reload>
 				</configuration>
 			</plugin>
 			<plugin>
