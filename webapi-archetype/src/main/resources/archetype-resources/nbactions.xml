@@ -2,7 +2,7 @@
 <actions>
 	<action>
 		<actionName>CUSTOM-web-config</actionName>
-		<displayName>webconfig</displayName>
+		<displayName>web-config</displayName>
 		<goals>
 			<goal>exec:exec</goal>
 		</goals>
@@ -28,5 +28,12 @@
 		<properties>
 			<skipTests>true</skipTests>
 		</properties>
+	</action>
+	<action>
+		<actionName>CUSTOM-ssi-compile</actionName>
+		<displayName>ssi-compile</displayName>
+		<goals>
+			<goal>com.github.thorqin.webapi-suit:webapi-maven-plugin:ssi-compile</goal>
+		</goals>
 	</action>
 </actions>

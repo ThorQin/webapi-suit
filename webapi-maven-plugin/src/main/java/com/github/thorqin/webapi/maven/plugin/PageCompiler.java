@@ -30,7 +30,7 @@ public class PageCompiler extends AbstractMojo {
 	@Parameter(defaultValue="${project.build.directory}/${project.build.finalName}")
 	String targetDirectory;
 	
-	@Parameter(defaultValue="shtml")
+	@Parameter(defaultValue="html")
 	String genFileSuffix;
 	
 	@Override
