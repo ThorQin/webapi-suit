@@ -102,6 +102,7 @@ public class WebInitializer implements ServletContainerInitializer {
 					ServletRegistration.Dynamic servletRegistion = ctx.addServlet(
 							"WebApiDispatcher" + i, application.getDispatcher());
 					servletRegistion.setLoadOnStartup(0);
+					servletRegistion.setAsyncSupported(true);
 					int count = 0;
 					for (String path : pathList) {
 						if (path.trim().length() != 0) {
