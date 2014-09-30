@@ -23,6 +23,13 @@ public class HttpException extends RuntimeException {
 		isJson = false;
 	}
 	
+	public HttpException(int httpStatus, Throwable throwable) {
+		super("Http Code: " + httpStatus, throwable);
+		this.httpStatus = httpStatus;
+		jsonObj = null;
+		isJson = false;
+	}
+	
 	public HttpException(int httpStatus, String message) {
 		super(message);
 		this.httpStatus = httpStatus;
@@ -30,8 +37,22 @@ public class HttpException extends RuntimeException {
 		isJson = false;
 	}
 	
+	public HttpException(int httpStatus, String message, Throwable throwable) {
+		super(message, throwable);
+		this.httpStatus = httpStatus;
+		jsonObj = null;
+		isJson = false;
+	}
+	
 	public HttpException(int httpStatus, Object jsonObj) {
 		super("Http Code: " + httpStatus);
+		this.jsonObj = jsonObj;
+		this.httpStatus = httpStatus;
+		isJson = false;
+	}
+	
+	public HttpException(int httpStatus, Object jsonObj, Throwable throwable) {
+		super("Http Code: " + httpStatus, throwable);
 		this.jsonObj = jsonObj;
 		this.httpStatus = httpStatus;
 		isJson = false;

@@ -31,6 +31,7 @@ import com.github.thorqin.webapi.database.DBService;
 import com.github.thorqin.webapi.mail.MailService;
 import com.github.thorqin.webapi.monitor.MonitorService;
 import com.github.thorqin.webapi.security.WebSecurityManager;
+import com.github.thorqin.webapi.utility.JsonConfig;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Proxy;
@@ -152,6 +153,12 @@ public abstract class WebApplication implements ServletContextListener {
 		} catch (Exception ex) {
 			return new File(WebApplication.class.getClassLoader().getResource(configFile).toURI());
 		}
+	}
+	
+	public final <T> T getConfig(String configFile, String key, Class<T> type) throws IOException, URISyntaxException {
+		JsonConfig config = new JsonConfig(this, configFile, Map.class);
+		Map<String, Object> map = (Map<String, Object>)config.get();
+		return (T)map.get(key);
 	}
 	
 	public final synchronized void setDataPath(String directory) {

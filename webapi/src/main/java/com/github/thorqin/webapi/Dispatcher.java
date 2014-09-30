@@ -681,7 +681,10 @@ public final class Dispatcher extends HttpServlet {
 					send(response, ex.getHttpStatus(), ex.getMessage());
 			} else
 				send(response, ex.getHttpStatus());
-			logger.log(Level.WARNING, ex.getMessage());
+			if (ex.getCause() != null)
+				logger.log(Level.WARNING, ex.getMessage(), ex.getCause());
+			else
+				logger.log(Level.WARNING, ex.getMessage());
 			return true;
 		} catch (InvocationTargetException ex) {
 			Throwable realEx = ex.getTargetException();
@@ -691,12 +694,15 @@ public final class Dispatcher extends HttpServlet {
 					if (httpEx.getJsonObject() != null)
 						sendJson(response, httpEx.getHttpStatus(), httpEx.getJsonObject());
 					else if (httpEx.isJsonString())
-						sendJsonString(response, httpEx.getHttpStatus(), ex.getMessage());
+						sendJsonString(response, httpEx.getHttpStatus(), httpEx.getMessage());
 					else
-						send(response, httpEx.getHttpStatus(), ex.getMessage());
+						send(response, httpEx.getHttpStatus(), httpEx.getMessage());
 				} else
 					send(response, httpEx.getHttpStatus());
-				logger.log(Level.WARNING, httpEx.getMessage());
+				if (httpEx.getCause() != null)
+					logger.log(Level.WARNING, httpEx.getMessage(), httpEx.getCause());
+				else
+					logger.log(Level.WARNING, httpEx.getMessage());
 			} else {
 				send(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Server error!");
 				logger.log(Level.SEVERE, "Error processing", ex);
@@ -785,7 +791,8 @@ public final class Dispatcher extends HttpServlet {
 		response.setHeader("Cache-Control", "no-store");
 		response.setDateHeader("Expires", 0);
 		try (Writer w = response.getWriter();) {
-			w.write(message);
+			if (message != null)
+				w.write(message);
 		} catch (IOException ex) {
 			logger.log(Level.SEVERE, "Send message to client failed!", ex);
 		}

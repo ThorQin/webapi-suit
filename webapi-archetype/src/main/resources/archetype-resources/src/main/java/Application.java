@@ -10,8 +10,14 @@ import com.github.thorqin.webapi.annotation.UseSecurity;
 @UseSecurity
 @UseDispatcher(value="/api/*")
 public class Application extends WebApplication {
+	private static Application inst = null;
+	public static Application getInstance() {
+		return inst;
+	}
+	
 	@Override
 	public void onStartup() {
+		inst = this;
 	}
 
 	@Override
