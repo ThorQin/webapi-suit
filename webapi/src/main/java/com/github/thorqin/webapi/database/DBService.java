@@ -620,12 +620,8 @@ public class DBService {
 			conn.rollback();
 		}
 		@Override
-		public void close()	{
-			try {
-				conn.close();
-			} catch (SQLException ex) {
-				logger.log(Level.SEVERE, "Close connection failed!", ex);
-			}
+		public void close() throws SQLException	{
+			conn.close();
 		}
 
 		private java.sql.Struct toUdt(Object obj) throws SQLException {

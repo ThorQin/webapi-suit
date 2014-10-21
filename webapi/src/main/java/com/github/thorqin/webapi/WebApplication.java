@@ -28,6 +28,7 @@ import com.github.thorqin.webapi.amq.AMQ;
 import com.github.thorqin.webapi.amq.AMQProxy;
 import com.github.thorqin.webapi.database.DBProxy;
 import com.github.thorqin.webapi.database.DBService;
+import com.github.thorqin.webapi.database.DBTranscationFactory;
 import com.github.thorqin.webapi.mail.MailService;
 import com.github.thorqin.webapi.monitor.MonitorService;
 import com.github.thorqin.webapi.security.WebSecurityManager;
@@ -223,7 +224,7 @@ public abstract class WebApplication implements ServletContextListener {
 		} else {
 			Object instance = Proxy.newProxyInstance(
 					WebApplication.class.getClassLoader(),
-					new Class<?>[] { interfaceType }, 
+					new Class<?>[] { interfaceType, DBTranscationFactory.class }, 
 					new DBProxy(getDBService(configName)) );
 			dbProxyMapping.put(key, instance);
 			return (T)instance;
