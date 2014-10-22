@@ -10475,6 +10475,10 @@ var tui;
                     this._list.enumerate(func);
             };
 
+            Accordion.prototype.consumeMouseWheelEvent = function (val) {
+                return this._list.consumeMouseWheelEvent(val);
+            };
+
             Accordion.prototype.useAnimation = function (val) {
                 if (typeof val === "boolean") {
                     this.is("data-anmimation", val);
