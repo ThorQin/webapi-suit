@@ -539,23 +539,24 @@ var tui;
     tui.debugElementPosition = debugElementPosition;
 
     /**
-    * Obtain hosted document's window size
+    * Obtain hosted document's window size (exclude scrollbars if have)
+    * NOTE: this function will spend much CPU time to run,
+    * so you SHOULD NOT try to call this function repeatedly.
     */
     function windowSize() {
-        var w = 630, h = 460;
-        if (document.body && document.body.offsetWidth) {
-            w = document.body.offsetWidth;
-            h = document.body.offsetHeight;
-        }
-        if (document.compatMode === 'CSS1Compat' && document.documentElement && document.documentElement.offsetWidth) {
-            w = document.documentElement.offsetWidth;
-            h = document.documentElement.offsetHeight;
-        }
-        if (window.innerWidth && window.innerHeight) {
-            w = window.innerWidth;
-            h = window.innerHeight;
-        }
-        return { width: w, height: h };
+        var div = document.createElement("div");
+        div.style.display = "block";
+        div.style.position = "fixed";
+        div.style.left = "0";
+        div.style.top = "0";
+        div.style.right = "0";
+        div.style.bottom = "0";
+        div.style.visibility = "hidden";
+        var parent = document.body || document.documentElement;
+        parent.appendChild(div);
+        var size = { width: div.offsetWidth, height: div.offsetHeight };
+        parent.removeChild(div);
+        return size;
     }
     tui.windowSize = windowSize;
     ;
@@ -654,6 +655,16 @@ var tui;
         $(document).bind("keydown", ban);
     }
     tui.banBackspace = banBackspace;
+
+    function cancelDefault(event) {
+        if (event.preventDefault) {
+            event.preventDefault();
+        } else {
+            event.returnValue = false;
+        }
+        return false;
+    }
+    tui.cancelDefault = cancelDefault;
 
     /**
     * Detect whether the given parent element is the real ancestry element
@@ -4522,6 +4533,11 @@ var tui;
                 } else if (param && typeof param.x === "number" && typeof param.y === "number") {
                     elem = this.elem("div", Popup.CLASS);
                     this._position = param;
+                    this._bindType = "LT";
+                } else if (typeof param === tui.undef) {
+                    elem = this.elem("div", Popup.CLASS);
+                    this._position = { x: 0, y: 0 };
+                    this._bindType = "LT";
                 }
                 if (elem) {
                     if (this._bindElem) {
@@ -4613,8 +4629,8 @@ var tui;
                 if (!this[0])
                     return;
                 var elem = this[0];
-                var cw = document.documentElement.clientWidth;
-                var ch = document.documentElement.clientHeight;
+                var cw = tui.windowSize().width;
+                var ch = tui.windowSize().height;
                 var sw = elem.offsetWidth;
                 var sh = elem.offsetHeight;
                 var box = { x: 0, y: 0, w: 0, h: 0 };
@@ -7501,12 +7517,14 @@ var tui;
                 this[0] = this._grid[0];
                 this[0]._ctrl = this;
                 this.addClass(List.CLASS);
-                this._grid.noHead(true);
+
                 var columns = this._grid.columns();
                 if (columns === null) {
                     this._grid.columns([{
                             key: "value",
                             format: function (info) {
+                                if (info.rowIndex < 0)
+                                    return;
                                 var rowcheckable = _this.rowcheckable();
                                 var cell = info.cell.firstChild;
                                 var isExpanded = !!info.row[_this._expandColumnKey];
@@ -7638,6 +7656,8 @@ var tui;
                     }
                     return _this.fire("keyup", data);
                 });
+                if (!this.hasAttr("data-no-head"))
+                    this.noHead(true);
                 if (!this.hasAttr("data-delay-drawing"))
                     this.delayDrawing(false);
                 if (!this.hasAttr("data-rowselectable"))
@@ -7978,6 +7998,10 @@ var tui;
 
             List.prototype.delayDrawing = function (val) {
                 return this._grid.delayDrawing(val);
+            };
+
+            List.prototype.noHead = function (val) {
+                return this._grid.noHead(val);
             };
 
             List.prototype.hasHScroll = function (val) {
