@@ -62,8 +62,8 @@ public class DBService {
 		typeMapping.put(float.class, java.sql.Types.FLOAT);
 		typeMapping.put(Double.class, java.sql.Types.DOUBLE);
 		typeMapping.put(double.class, java.sql.Types.DOUBLE);
-		typeMapping.put(Boolean.class, java.sql.Types.BIT);
-		typeMapping.put(boolean.class, java.sql.Types.BIT);
+		typeMapping.put(Boolean.class, java.sql.Types.BOOLEAN);
+		typeMapping.put(boolean.class, java.sql.Types.BOOLEAN);
 		typeMapping.put(String.class, java.sql.Types.VARCHAR);
 		typeMapping.put(DBCursor.class, java.sql.Types.OTHER);
 		typeMapping.put(DBTable.class, java.sql.Types.OTHER);
