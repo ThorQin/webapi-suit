@@ -41,6 +41,7 @@ import java.util.logging.Logger;
 public class DBService {
 	private static final Logger logger = Logger.getLogger(DBService.class.getName());
 	private static final Map<Class<?>, Integer> typeMapping;
+	private static final Map<Class<?>, String> arrayType;
 	
 	static {
 		typeMapping = new HashMap<>();
@@ -68,6 +69,26 @@ public class DBService {
 		typeMapping.put(DBCursor.class, java.sql.Types.OTHER);
 		typeMapping.put(DBTable.class, java.sql.Types.OTHER);
 		typeMapping.put(BigDecimal.class, java.sql.Types.NUMERIC);
+		
+		arrayType = new HashMap<>();
+		arrayType.put(String[].class, "text");
+		arrayType.put(byte[].class, "bytea");
+		arrayType.put(Byte[].class, "bytea");
+		arrayType.put(short[].class, "smallint");
+		arrayType.put(Short[].class, "smallint");
+		arrayType.put(int[].class, "integer");
+		arrayType.put(Integer[].class, "integer");
+		arrayType.put(long[].class, "bigint");
+		arrayType.put(Long[].class, "bigint");
+		arrayType.put(float[].class, "real");
+		arrayType.put(Float[].class, "real");
+		arrayType.put(double[].class, "double precision");
+		arrayType.put(Double[].class, "double precision");
+		arrayType.put(boolean[].class, "boolean");
+		arrayType.put(Boolean[].class, "boolean");
+		arrayType.put(BigDecimal[].class, "numeric");
+		arrayType.put(Date[].class, "timestamp with time zone");
+		arrayType.put(Calendar[].class, "timestamp with time zone");
 	}
 	
 	private static int toSqlType(Class<?> type) {
@@ -162,6 +183,17 @@ public class DBService {
 		} else {
 			return obj;
 		}
+	}
+	
+	private static Array toSqlArray(Connection conn, Object[] obj) throws SQLException {
+		if (obj.getClass().isArray()) {
+			String type = arrayType.get(obj.getClass());
+			if (type != null)
+				return conn.createArrayOf(type, obj);
+			else
+				return null;
+		} else
+			return null;
 	}
 
 	private static Object fromSqlObject(Object obj, Map<String, Class<?>> udtMapping) throws SQLException {
@@ -655,7 +687,7 @@ public class DBService {
 			} else if (obj.getClass().equals(Calendar.class)) {
 				return toSqlDate((Calendar)obj);
 			} else if (obj.getClass().equals(DBCursor.class)) {
-				return ((DBCursor)obj).getResultSet();
+				return ((DBCursor)obj).getResultSet(); 
 			} else if ((udt = toUdt(obj)) != null) {
 				return udt;
 			} else {
@@ -698,6 +730,9 @@ public class DBService {
 						stmt.setObject(offset++, udt, java.sql.Types.STRUCT);
 					} else if (paramType.equals(DBCursor.class)) {
 						stmt.setObject(offset++, ((DBCursor)obj).getResultSet());
+					} else if (paramType.isArray()) {
+						Array array = toSqlArray(stmt.getConnection(), (Object[])obj);
+						stmt.setArray(offset++, array);
 					} else {
 						stmt.setObject(offset++, obj);
 					}
@@ -741,6 +776,9 @@ public class DBService {
 						stmt.setObject(offset++, ((DBCursor)obj).getResultSet());
 					} else if ((udt = toUdt(obj)) != null) {
 						stmt.setObject(offset++, udt, java.sql.Types.STRUCT);
+					}  else if (paramType.isArray()) {
+						java.sql.Array array = toSqlArray(stmt.getConnection(), (Object[])obj);
+						stmt.setArray(offset++, array);
 					} else {
 						stmt.setObject(offset++, obj);
 					}

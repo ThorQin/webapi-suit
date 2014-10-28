@@ -39,7 +39,7 @@ public class DBProxy implements InvocationHandler {
 	public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
 		Class<?> classInterface = proxy.getClass().getInterfaces()[0];
 		if (method.getDeclaringClass().equals(DBTranscationFactory.class)) {
-			if (method.getName().equals("DBTranscationFactory")) {
+			if (method.getName().equals("newTranscation")) {
 				Object instance = Proxy.newProxyInstance(
 					proxy.getClass().getClassLoader(),
 					new Class<?>[] { classInterface, DBTranscationFactory.class, DBTranscation.class }, 
@@ -47,7 +47,7 @@ public class DBProxy implements InvocationHandler {
 				return instance;
 			}
 			return null;
-		} else if (method.getDeclaringClass().equals(DBTranscation.class)) {
+		} else if (this.transcation != null && method.getDeclaringClass().equals(DBTranscation.class)) {
 			switch (method.getName()) {
 				case "commit":
 					this.transcation.commit();
@@ -58,6 +58,9 @@ public class DBProxy implements InvocationHandler {
 				case "getSession":
 					return this.transcation;
 			}
+			return null;
+		} else if (this.transcation != null && method.getDeclaringClass().equals(AutoCloseable.class)) {
+			this.transcation.close();
 			return null;
 		}
 
@@ -96,12 +99,21 @@ public class DBProxy implements InvocationHandler {
 			}
 		}
 		if (method.getReturnType().equals(void.class) || method.getReturnType().equals(Void.class)) {
-			session.perform(procName, args);
-			session.commit();
+			try {
+				session.perform(procName, args);
+				if (this.transcation == null) session.commit();
+			} finally {
+				if (this.transcation == null) session.rollback();
+			}
 			return null;
 		} else {
-			Object result = session.invoke(procName, method.getReturnType(), args);
-			session.commit();
+			Object result;
+			try {
+				result = session.invoke(procName, method.getReturnType(), args);
+				if (this.transcation == null) session.commit();
+			} finally {
+				if (this.transcation == null) session.rollback();
+			}
 			return result;
 		}
 	}
