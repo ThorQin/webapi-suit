@@ -779,6 +779,18 @@ public final class Dispatcher extends HttpServlet {
 		}
 	}
 
+	public static void httpException(Exception ex, Integer status) throws HttpException {
+		Throwable e = ex;
+		Throwable cause;
+		while ((cause = e.getCause()) != null)
+			e = cause;
+		throw new HttpException(status, e.getMessage(), ex);
+	}
+	
+	public static void httpException(Exception ex) throws HttpException {
+		httpException(ex, 400);
+	}
+	
 	public static void send(HttpServletResponse response, Integer status, String message) {
 		response.setStatus(status);
 		send(response, message);

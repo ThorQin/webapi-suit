@@ -41,6 +41,7 @@ import java.util.logging.Logger;
 public class DBService {
 	private static final Logger logger = Logger.getLogger(DBService.class.getName());
 	private static final Map<Class<?>, Integer> typeMapping;
+	// This type very depends on which database are you using.
 	private static final Map<Class<?>, String> arrayType;
 	
 	static {
@@ -70,6 +71,7 @@ public class DBService {
 		typeMapping.put(DBTable.class, java.sql.Types.OTHER);
 		typeMapping.put(BigDecimal.class, java.sql.Types.NUMERIC);
 		
+		// Following type definitions are adapted for postgresql only.
 		arrayType = new HashMap<>();
 		arrayType.put(String[].class, "text");
 		arrayType.put(byte[].class, "bytea");
