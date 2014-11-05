@@ -258,6 +258,10 @@ public class Validator {
 				if (!pathStack.empty())
 					pathStack.pop();
 			}
+			if (Verifiable.class.isAssignableFrom(type)) {
+				Verifiable verifiable = (Verifiable)value;
+				verifiable.validate();
+			}
 		}
 	}
 	
