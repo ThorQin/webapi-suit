@@ -7527,6 +7527,7 @@ var tui;
                                     return;
                                 var rowcheckable = _this.rowcheckable();
                                 var cell = info.cell.firstChild;
+                                var itemIcon = info.row[_this._iconColumnKey];
                                 var isExpanded = !!info.row[_this._expandColumnKey];
                                 var hasCheckbox = (typeof info.row[_this._checkedColumnKey] !== tui.undef);
                                 var isChecked = !!info.row[_this._checkedColumnKey];
@@ -7550,7 +7551,12 @@ var tui;
                                         });
                                     }
                                 }
-
+                                if (typeof itemIcon === "string") {
+                                    var icon = document.createElement("i");
+                                    icon.className = "fa " + itemIcon;
+                                    icon.style.marginRight = "4px";
+                                    cell.insertBefore(icon, cell.firstChild);
+                                }
                                 if (hasCheckbox && rowcheckable) {
                                     var checkIcon = document.createElement("span");
                                     checkIcon.className = "tui-list-checkbox";
@@ -8075,6 +8081,7 @@ var tui;
                     this._levelColumnKey = finalData.mapKey("level");
                     this._valueColumnKey = finalData.mapKey("value");
                     this._expandColumnKey = finalData.mapKey("expand");
+                    this._iconColumnKey = finalData.mapKey("icon");
                     if (this.triState())
                         this.initTriState();
                     else
