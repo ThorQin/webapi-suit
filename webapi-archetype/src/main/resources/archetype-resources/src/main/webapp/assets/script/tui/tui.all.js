@@ -666,6 +666,15 @@ var tui;
     }
     tui.cancelDefault = cancelDefault;
 
+    function cancelBubble(event) {
+        if (event && event.stopPropagation)
+            event.stopPropagation();
+        else
+            window.event.cancelBubble = true;
+        return false;
+    }
+    tui.cancelBubble = cancelBubble;
+
     /**
     * Detect whether the given parent element is the real ancestry element
     * @param elem
@@ -3449,7 +3458,11 @@ var tui;
                                     return;
                             }
                             if (self.isShowError() && !(Form.ignoreErrors && Form.ignoreErrors.indexOf(jqXHR.status) >= 0)) {
-                                tui.errbox(tui.str(status) + " (" + jqXHR.status + ")", tui.str("Failed"));
+                                var respText = /^\s*text\/plain\s*(;.+)?/i.test(jqXHR.getResponseHeader("content-type"));
+                                if (respText && jqXHR.responseText)
+                                    tui.errbox(tui.str(jqXHR.responseText), tui.str("Failed"));
+                                else
+                                    tui.errbox(tui.str(status) + " (" + jqXHR.status + ")", tui.str("Failed"));
                             }
                         }
                     },
@@ -4195,6 +4208,17 @@ var tui;
     /// <reference path="tui.ctrl.control.ts" />
     /// <reference path="tui.time.ts" />
     (function (_ctrl) {
+        function formatNumber(v, maxValue) {
+            if (v < 0)
+                v = 0;
+            if (v > maxValue)
+                v = maxValue;
+            if (v < 10)
+                return "0" + v;
+            else
+                return v + "";
+        }
+
         var Calendar = (function (_super) {
             __extends(Calendar, _super);
             function Calendar(el) {
@@ -4230,6 +4254,140 @@ var tui;
                         }
                     }
                 }
+
+                function elem(n) {
+                    return document.createElement(n);
+                }
+
+                var timeDiv = elem("div");
+                this._timeDiv = timeDiv;
+                timeDiv.className = "tui-calendar-timebar";
+                timeDiv.style.display = "none";
+                var hourBox = elem("input");
+                this._hourBox = hourBox;
+                hourBox.type = "text";
+                hourBox.className = "tui-calendar-timebox";
+                hourBox._maxValue = 23;
+                hourBox.maxLength = 2;
+                hourBox._type = "hour";
+                var minuteBox = elem("input");
+                this._minuteBox = minuteBox;
+                minuteBox.type = "text";
+                minuteBox.className = "tui-calendar-timebox";
+                minuteBox._maxValue = 59;
+                minuteBox.maxLength = 2;
+                minuteBox._type = "minute";
+                var secondBox = elem("input");
+                this._secondBox = secondBox;
+                secondBox.type = "text";
+                secondBox.className = "tui-calendar-timebox";
+                secondBox._maxValue = 59;
+                secondBox.maxLength = 2;
+                secondBox._type = "second";
+                function timeDown(e) {
+                    var o = e.srcElement || e.target;
+                    tui.cancelBubble(e);
+                    var maxValue = o._maxValue;
+                    var type = o._type;
+                    var k = e.keyCode;
+                    if (k === 37) {
+                        if (o === minuteBox)
+                            hourBox.focus();
+                        else if (o === secondBox)
+                            minuteBox.focus();
+                    } else if (k === 39) {
+                        if (o === minuteBox)
+                            secondBox.focus();
+                        else if (o === hourBox)
+                            minuteBox.focus();
+                    } else if (k === 38) {
+                        var v = parseInt(o.value);
+                        v++;
+                        if (v > maxValue)
+                            v = 0;
+                        o.value = formatNumber(v, maxValue);
+                        if (type === "hour")
+                            self.hours(parseInt(o.value));
+                        else if (type === "minute")
+                            self.minutes(parseInt(o.value));
+                        else
+                            self.seconds(parseInt(o.value));
+                        o.select();
+                    } else if (k === 40) {
+                        var v = parseInt(o.value);
+                        v--;
+                        if (v < 0)
+                            v = maxValue;
+                        o.value = formatNumber(v, maxValue);
+                        o.select();
+                        if (type === "hour")
+                            self.hours(parseInt(o.value));
+                        else if (type === "minute")
+                            self.minutes(parseInt(o.value));
+                        else
+                            self.seconds(parseInt(o.value));
+                        o.select();
+                    } else if (k >= 48 && k <= 57) {
+                        var v = k - 48;
+                        var now = tui.today().getTime();
+                        if (o._lastInputTime && (now - o._lastInputTime) < 1000)
+                            o.value = formatNumber(parseInt(o.value.substr(1, 1)) * 10 + v, maxValue);
+                        else
+                            o.value = formatNumber(v, maxValue);
+                        o._lastInputTime = now;
+                        o.select();
+                        if (type === "hour")
+                            self.hours(parseInt(o.value));
+                        else if (type === "minute")
+                            self.minutes(parseInt(o.value));
+                        else
+                            self.seconds(parseInt(o.value));
+                        o.select();
+                    } else if (k == 13)
+                        self.fire("picked", { "ctrl": self[0], "event": e, "time": self.time() });
+                    if (k !== 9)
+                        return tui.cancelDefault(e);
+                }
+                function selectText(e) {
+                    var o = e.srcElement || e.target;
+                    setTimeout(function () {
+                        o.select();
+                    }, 0);
+                }
+                $(hourBox).on("keydown", timeDown);
+                $(minuteBox).on("keydown", timeDown);
+                $(secondBox).on("keydown", timeDown);
+                $(hourBox).on("focus mousedown mouseup", selectText);
+                $(minuteBox).on("focus mousedown mouseup", selectText);
+                $(secondBox).on("focus mousedown mouseup", selectText);
+                $(hourBox).on("contextmenu", tui.cancelDefault);
+                $(minuteBox).on("contextmenu", tui.cancelDefault);
+                $(secondBox).on("contextmenu", tui.cancelDefault);
+
+                function createText(t) {
+                    var txt = elem("span");
+                    txt.style.verticalAlign = "middle";
+                    txt.style.margin = "2px";
+                    txt.innerHTML = t;
+                    return txt;
+                }
+                var label = createText(tui.str("Choose Time"));
+                timeDiv.appendChild(label);
+                timeDiv.appendChild(hourBox);
+                timeDiv.appendChild(createText(":"));
+                timeDiv.appendChild(minuteBox);
+                timeDiv.appendChild(createText(":"));
+                timeDiv.appendChild(secondBox);
+                var u = createText("<a class='tui-calendar-update'></a>");
+                $(u).mousedown(function (e) {
+                    var now = tui.today();
+                    var newTime = new Date(self.year(), self.month() - 1, self.day(), now.getHours(), now.getMinutes(), now.getSeconds());
+                    self.time(newTime);
+                    return tui.cancelBubble(e);
+                });
+                timeDiv.appendChild(u);
+                this[0].appendChild(timeDiv);
+
                 $(this[0]).on("mousedown", function (e) {
                     if (tui.ffVer > 0)
                         _this.focus();
@@ -4277,14 +4435,14 @@ var tui;
                         return;
                     var cell = e.target;
                     if (typeof cell["offsetMonth"] === "number")
-                        self.fire("picked", { "ctrl": _this[0], "event": e, "time": _this._time });
+                        self.fire("picked", { "ctrl": _this[0], "event": e, "time": _this.time() });
                 });
                 $(this[0]).on("dblclick", function (e) {
                     if (e.target.nodeName.toLowerCase() !== "td")
                         return;
                     var cell = e.target;
                     if (typeof cell["offsetMonth"] === "number")
-                        self.fire("dblpicked", { "ctrl": _this[0], "event": e, "time": _this._time });
+                        self.fire("dblpicked", { "ctrl": _this[0], "event": e, "time": _this.time() });
                 });
                 $(this[0]).on("keydown", function (e) {
                     var k = e.keyCode;
@@ -4305,13 +4463,23 @@ var tui;
                             _this.prevMonth();
                         } else if (k === 34) {
                             _this.nextMonth();
-                        } else if (k === 13) {
-                            self.fire("picked", { "ctrl": _this[0], "event": e, "time": _this._time });
                         }
+                        self.fire("picked", { "ctrl": _this[0], "event": e, "time": _this.time() });
                         return e.preventDefault();
                     }
                 });
-                this.update();
+
+                // Set initial value
+                var val = this.attr("data-value");
+                if (val === null)
+                    this.update();
+                else {
+                    var dateVal = tui.parseDate(val);
+                    if (dateVal == null)
+                        this.update();
+                    else
+                        this.time(dateVal);
+                }
             }
             Calendar.prototype.setText = function (line, column, content) {
                 var cell = (this._tb.rows[line].cells[column]);
@@ -4321,14 +4489,76 @@ var tui;
                     cell.innerHTML = content;
             };
 
-            Calendar.prototype.year = function () {
-                return this._time.getFullYear();
+            Calendar.prototype.year = function (val) {
+                if (typeof val === "number") {
+                    if (this._time.getFullYear() !== val) {
+                        this._time.setFullYear(val);
+                        this.update();
+                        this.fire("change", { "ctrl": this[0], "time": this.time() });
+                    }
+                    return this;
+                } else
+                    return this._time.getFullYear();
             };
-            Calendar.prototype.day = function () {
-                return this._time.getDate();
+
+            Calendar.prototype.day = function (val) {
+                if (typeof val === "number") {
+                    if (this._time.getDate() !== val) {
+                        this._time.setDate(val);
+                        this.update();
+                        this.fire("change", { "ctrl": this[0], "time": this.time() });
+                    }
+                    return this;
+                } else
+                    return this._time.getDate();
             };
-            Calendar.prototype.month = function () {
-                return this._time.getMonth() + 1;
+
+            Calendar.prototype.month = function (val) {
+                if (typeof val === "number") {
+                    if (this._time.getMonth() !== val - 1) {
+                        this._time.setMonth(val - 1);
+                        this.update();
+                        this.fire("change", { "ctrl": this[0], "time": this.time() });
+                    }
+                    return this;
+                } else
+                    return this._time.getMonth() + 1;
+            };
+
+            Calendar.prototype.hours = function (val) {
+                if (typeof val === "number") {
+                    if (this._time.getHours() !== val) {
+                        this._time.setHours(val);
+                        this.update();
+                        this.fire("change", { "ctrl": this[0], "time": this.time() });
+                    }
+                    return this;
+                } else
+                    return this._time.getHours();
+            };
+
+            Calendar.prototype.minutes = function (val) {
+                if (typeof val === "number") {
+                    if (this._time.getMinutes() !== val) {
+                        this._time.setMinutes(val);
+                        this.update();
+                        this.fire("change", { "ctrl": this[0], "time": this.time() });
+                    }
+                    return this;
+                } else
+                    return this._time.getMinutes();
+            };
+
+            Calendar.prototype.seconds = function (val) {
+                if (typeof val === "number") {
+                    if (this._time.getSeconds() !== val) {
+                        this._time.setSeconds(val);
+                        this.update();
+                        this.fire("change", { "ctrl": this[0], "time": this.time() });
+                    }
+                    return this;
+                } else
+                    return this._time.getSeconds();
             };
 
             Calendar.prototype.time = function (t) {
@@ -4338,10 +4568,14 @@ var tui;
                         changed = true;
                     this._time = t;
                     this.update();
-                    changed && this.fire("change", { "ctrl": this[0], "time": this._time });
+                    changed && this.fire("change", { "ctrl": this[0], "time": this.time() });
                     return this;
-                } else
-                    return this._time;
+                } else {
+                    if (this.timepart()) {
+                        return new Date(this._time.getTime());
+                    } else
+                        return new Date(this._time.getFullYear(), this._time.getMonth(), this._time.getDate());
+                }
             };
 
             Calendar.prototype.value = function (t) {
@@ -4393,8 +4627,18 @@ var tui;
                     d = tui.totalDaysOfMonth(newDate);
                 this.onPicked(y, m, d);
             };
+
+            Calendar.prototype.timepart = function (val) {
+                if (typeof val === "boolean") {
+                    this.is("data-timepart", val);
+                    this.refresh();
+                    return this;
+                } else
+                    return this.is("data-timepart");
+            };
+
             Calendar.prototype.onPicked = function (y, m, d) {
-                var newDate = new Date(y, m - 1, d);
+                var newDate = new Date(y, m - 1, d, this.hours(), this.minutes(), this.seconds());
                 this.time(newDate);
             };
             Calendar.prototype.firstDay = function (date) {
@@ -4443,6 +4687,18 @@ var tui;
                         }
                     }
                 }
+                if (this.timepart()) {
+                    this._timeDiv.style.display = "";
+                    this._hourBox.value = formatNumber(this.hours(), 23);
+                    this._minuteBox.value = formatNumber(this.minutes(), 59);
+                    this._secondBox.value = formatNumber(this.seconds(), 59);
+                } else {
+                    this._timeDiv.style.display = "none";
+                }
+            };
+
+            Calendar.prototype.refresh = function () {
+                this.update();
             };
             Calendar.CLASS = "tui-calendar";
             Calendar._week = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -7969,6 +8225,28 @@ var tui;
                 return checkedItems;
             };
 
+            List.prototype.allKeys = function (onlyCheckable) {
+                var self = this;
+                var keys = [];
+                function checkChildren(children) {
+                    for (var i = 0; i < children.length; i++) {
+                        if (!children[i])
+                            continue;
+                        var k = children[i][self._keyColumKey];
+                        if ((onlyCheckable && typeof children[i][self._checkedColumnKey] !== tui.undef || !onlyCheckable) && typeof k !== tui.undef && k !== null)
+                            keys.push(k);
+                        var myChilren = children[i][self._childrenColumKey];
+                        if (myChilren && myChilren.length > 0)
+                            checkChildren(myChilren);
+                    }
+                }
+                var data = this._grid.data();
+                if (data && typeof data.src === "function") {
+                    checkChildren(data.src());
+                }
+                return keys;
+            };
+
             List.prototype.enumerate = function (func) {
                 var self = this;
                 var checkedItems = [];
@@ -8358,6 +8636,7 @@ var tui;
                 var self = this;
                 var pop = tui.ctrl.popup();
                 var calendar = tui.ctrl.calendar();
+                calendar.timepart(this.timepart());
                 calendar.time(self.value());
                 calendar.on("picked", function (e) {
                     if (self.readonly()) {
@@ -8467,6 +8746,7 @@ var tui;
 
                 list[0].style.width = self[0].offsetWidth - 2 + "px";
                 list.data(self._data);
+                var allKeys = list.allKeys(true);
                 list.uncheckAllItems();
                 var keys = getKeys(this.selectValue());
                 list.checkItems(keys);
@@ -8474,6 +8754,16 @@ var tui;
                 var bar = document.createElement("div");
                 bar.className = "tui-input-select-bar";
                 calbox.appendChild(bar);
+
+                var selAll = tui.ctrl.checkbox();
+                selAll.text("All");
+                selAll.on("click", function () {
+                    if (selAll.checked())
+                        list.checkAllItems();
+                    else
+                        list.uncheckAllItems();
+                });
+
                 var okLink = document.createElement("a");
                 okLink.innerHTML = "<i class='fa fa-check'></i> " + tui.str("Accept");
                 okLink.href = "javascript:void(0)";
@@ -8490,6 +8780,16 @@ var tui;
                         return;
                     self.doSubmit();
                 });
+                function isAllChecked() {
+                    if (list.checkedItems().length >= allKeys.length)
+                        selAll.checked(true);
+                    else
+                        selAll.checked(false);
+                }
+                isAllChecked();
+                list.on("rowcheck", function (data) {
+                    isAllChecked();
+                });
                 list.on("keydown", function (data) {
                     if (data["event"].keyCode === 13) {
                         if (self.readonly()) {
@@ -8505,6 +8805,8 @@ var tui;
                         self.doSubmit();
                     }
                 });
+                bar.appendChild(selAll[0]);
+                bar.appendChild(document.createTextNode(" | "));
                 bar.appendChild(okLink);
 
                 pop.show(calbox, self[0], "Rb");
@@ -8595,7 +8897,7 @@ var tui;
                 var text = "";
                 for (var i = 0; i < val.length; i++) {
                     if (text.length > 0)
-                        text += "; ";
+                        text += ", ";
                     var t = map[val[i].key];
                     if (typeof t === tui.undef)
                         t = validText(val[i].value);
@@ -8934,6 +9236,15 @@ var tui;
                     return this.attr("data-accept");
             };
 
+            Input.prototype.timepart = function (val) {
+                if (typeof val === "boolean") {
+                    this.is("data-timepart", val);
+                    this.refresh();
+                    return this;
+                } else
+                    return this.is("data-timepart");
+            };
+
             Input.prototype.data = function (data) {
                 if (data) {
                     var self = this;
@@ -9009,12 +9320,11 @@ var tui;
                         if (val && typeof val.length === "number") {
                             this.attr("data-value", JSON.stringify(val));
                             this.attr("data-text", this.formatSelectTextByData(val));
-                            this._invalid = false;
                         } else if (val === null) {
                             this.attr("data-value", "[]");
                             this.attr("data-text", "");
-                            this._invalid = false;
                         }
+                        this._invalid = false;
                         this._initialized = false;
                         this.refresh();
                     }
@@ -9035,6 +9345,7 @@ var tui;
                 if (typeof val === "boolean") {
                     this.is("data-readonly", val);
                     this._initialized = false;
+                    this._invalid = false;
                     this.refresh();
                     return this;
                 } else
@@ -9047,6 +9358,24 @@ var tui;
                     return this;
                 } else
                     return this.attr("data-date-format");
+            };
+
+            Input.prototype.textFormat = function (format) {
+                if (typeof format === "string") {
+                    this.attr("data-text-format", format);
+                    return this;
+                } else
+                    return this.attr("data-text-format");
+            };
+
+            Input.prototype.allKeys = function () {
+                var type = this.type();
+                if (type === "select" || type === "multi-select") {
+                    var list = tui.ctrl.list();
+                    list.data(this._data);
+                    return list.allKeys(type === "multi-select");
+                } else
+                    return null;
             };
 
             Input.prototype.value = function (val) {
@@ -9068,7 +9397,14 @@ var tui;
                         }
                         if (val instanceof Date) {
                             this.attr("data-value", tui.formatDate(val, "yyyy-MM-ddTHH:mm:ss.SSSZ"));
-                            this.attr("data-text", tui.formatDate(val, tui.str("yyyy-MM-dd")));
+                            var fmt = this.textFormat();
+                            if (fmt === null) {
+                                if (this.timepart())
+                                    fmt = tui.str("yyyy-MM-dd HH:mm:ss");
+                                else
+                                    fmt = tui.str("yyyy-MM-dd");
+                            }
+                            this.attr("data-text", tui.formatDate(val, fmt));
                             this._invalid = false;
                         }
                         this._initialized = false;
