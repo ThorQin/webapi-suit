@@ -102,7 +102,7 @@ public class ClientSession implements HttpSession {
 					request.setAttribute("com.github.thorqin.webapi.security.ClientSession", inst);
 					return inst;
 				} catch (Exception ex) {
-					logger.log(Level.SEVERE, "Session verify failed", ex);
+					logger.log(Level.SEVERE, "Session verify failed: " + cookie.getValue(), ex);
 				}
 			}
 		}
