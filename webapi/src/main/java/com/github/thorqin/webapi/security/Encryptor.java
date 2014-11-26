@@ -76,11 +76,11 @@ public class Encryptor {
 		this.cipher = Cipher.getInstance(cipher);
     }
 	
-	public final byte[] encrypt(byte[] src) throws Exception {
+	public synchronized final byte[] encrypt(byte[] src) throws Exception {
 		cipher.init(Cipher.ENCRYPT_MODE, secretKey);
 		return cipher.doFinal(src);
 	}
-	public final byte[] decrypt(byte[] src) throws Exception {
+	public synchronized final byte[] decrypt(byte[] src) throws Exception {
 		cipher.init(Cipher.DECRYPT_MODE, secretKey);
 		return cipher.doFinal(src);
 	}
