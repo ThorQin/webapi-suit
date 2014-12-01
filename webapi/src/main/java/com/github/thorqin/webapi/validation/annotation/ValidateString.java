@@ -45,7 +45,7 @@ public @interface ValidateString {
 	public final static String USERNAME = "^[a-zA-Z]\\w{5,29}$";
 	public final static String EMAIL = "^\\w+([-+.]\\w+)*@\\w+([-.]\\w+)*\\.\\w+([-.]\\w+)*$";
 	public final static String CHINESE_CHARACTER = "^[\u4e00-\u9fa5]{0,}$";
-	public final static String URL = "^http://([\\w-]+\\.)+[\\w-]+(/[\\w-./?%&=]*)?$";
+	public final static String URL = "^https?://([\\w-]+\\.)+[\\w-]+(:[0-9]{1,5})?(/[\\w-./?%&=]*)?$";
 	public final static String MONTH = "^(0?[1-9]|1[0-2])$";
 	public final static String DAY = "^((0?[1-9])|((1|2)[0-9])|30|31)$";
 	public final static String YEAR = "^19[7-9][0-9]|[2-9][0-9]{0,3}$";
