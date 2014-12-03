@@ -10024,7 +10024,7 @@ var tui;
                 _super.call(this, "div", Tab.CLASS, el);
                 this._tabId = "tab-" + tui.uuid();
                 this._buttons = [];
-
+                var self = this;
                 var removeList = [];
                 var activeIndex = 0;
                 for (var i = 0; i < this[0].childNodes.length; i++) {
@@ -10036,24 +10036,28 @@ var tui;
                         this._buttons.push(button);
                         if (button.checked())
                             activeIndex = this._buttons.length - 1;
-                        button.on("check", this.checkPage);
+                        button.on("check", function (data) {
+                            self.checkPage(data.ctrl);
+                        });
                     } else
                         removeList.push(child);
                 }
-                for (var i = 0; i < removeList.length; i++) {
-                    tui.removeNode(removeList[i]);
-                }
+
+                //for (var i = 0; i < removeList.length; i++) {
+                //	tui.removeNode(removeList[i]);
+                //}
                 this.at(activeIndex).checked(true);
             }
-            Tab.prototype.checkPage = function (data) {
-                var tabId = data.ctrl.attr("data-tab");
+            Tab.prototype.checkPage = function (button) {
+                var tabId = button.attr("data-tab");
                 tabId = "#" + tabId;
-                if (data.ctrl.checked()) {
+                if (button.checked()) {
                     $(tabId).removeClass("tui-hidden");
                     tui.ctrl.initCtrls($(tabId)[0]);
                 } else {
                     $(tabId).addClass("tui-hidden");
                 }
+                this.fire("active", { index: this._buttons.indexOf(button), text: button.text() });
             };
 
             Tab.prototype.at = function (index) {
@@ -10063,10 +10067,22 @@ var tui;
                     return null;
             };
 
+            Tab.prototype.count = function () {
+                return this._buttons.length;
+            };
+
             Tab.prototype.add = function (name, index) {
+                var self = this;
+                if (typeof index === "number") {
+                    if (index >= this._buttons.length)
+                        return null;
+                }
                 var button = tui.ctrl.radiobox();
                 button.text(name);
-                button.on("check", this.checkPage);
+                button.group(this._tabId);
+                button.on("check", function (data) {
+                    self.checkPage(data.ctrl);
+                });
                 if (typeof index === tui.undef) {
                     this[0].appendChild(button[0]);
                     this._buttons.push(button);
@@ -10074,17 +10090,21 @@ var tui;
                     this[0].insertBefore(button[0], this.at(index)[0]);
                     this._buttons.splice(index, 0, button);
                 }
-                return this;
+                return button;
             };
 
             Tab.prototype.remove = function (index) {
                 var button = this.at(index);
                 if (button) {
-                    button.off("check", this.checkPage);
                     this._buttons.splice(index, 1);
                     tui.removeNode(button[0]);
+                    if (index < this._buttons.length)
+                        this.active(index);
+                    else if (this._buttons.length > 0)
+                        this.active(this._buttons.length - 1);
+                    return button;
                 }
-                return this;
+                return null;
             };
 
             Tab.prototype.active = function (index) {
@@ -10092,6 +10112,7 @@ var tui;
                     var button = this.at(index);
                     if (button) {
                         button.checked(true);
+                        this.checkPage(button);
                     }
                     return this;
                 } else {
