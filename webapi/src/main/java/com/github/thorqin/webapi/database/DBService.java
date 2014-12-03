@@ -277,6 +277,10 @@ public class DBService {
 				}
 			}
 		}
+		public int getColumnPos(String column) {
+			buildHeadMapping();
+			return headMapping.get(column);
+		}
 		public Object getValue(Object[] row, String column) {
 			buildHeadMapping();
 			Integer pos = headMapping.get(column);
