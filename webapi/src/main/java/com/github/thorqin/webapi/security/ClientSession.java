@@ -1,5 +1,6 @@
 package com.github.thorqin.webapi.security;
 
+import static com.github.thorqin.webapi.security.Encryptor.AES;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -28,11 +29,10 @@ public class ClientSession implements HttpSession {
 	private final static String sessionName = "webapiSession";
 	private final static String keyCode = "kyj1JEkLQ/5To0AF81vlmA==";
 	private final static Logger logger = Logger.getLogger(ClientSession.class.getName());
-	private static Encryptor enc = null;
+	private final static ThreadLocal<Encryptor> encryptorLocalStore = new ThreadLocal<>();
 	
 	private HttpServletRequest request = null;
 	private HttpServletResponse response = null;
-	//private Map<String, Object> values = null;
 	private boolean isSaved = false;
 	private boolean isNew = true;
 	
@@ -43,25 +43,25 @@ public class ClientSession implements HttpSession {
 		public int maxInterval = 0;
 		public Map<String, Object> values = null;
 	}
-	private Data value;
+	private final Data value;
 	
-	static {
-		try {
-			enc = new Encryptor(importKey(), "AES");
-		} catch (Exception ex) {
-			enc = null;
-			logger.log(Level.SEVERE, "Initialize ClientSession failed!", ex);
+	private static Encryptor getEncryptor() throws Exception {
+		Encryptor obj = encryptorLocalStore.get();
+		if (obj == null) {
+			obj = new Encryptor(AES, importKey());
+			encryptorLocalStore.set(obj);
 		}
+		return obj;
 	}
 	
-	private static byte[] importKey() {
+	private static String importKey() {
 		String path = ClientSession.class.getClassLoader().getResource("/").getFile();
 		path += "server.key";
 		try {
-			return Files.readAllBytes(new File(path).toPath());
+			return new String(Files.readAllBytes(new File(path).toPath()));
 		} catch (IOException ex) {
 			logger.log(Level.WARNING, "server.key does not exists in classes folder, use default key instead.");
-			return Base64.decodeBase64(keyCode);
+			return keyCode;
 		}
 	}
 	
@@ -123,8 +123,7 @@ public class ClientSession implements HttpSession {
 	}
 	
 	private ClientSession(HttpServletRequest request, HttpServletResponse response, String data) throws Exception {
-		if (enc == null)
-			throw new Exception("ClientSession not ready!");
+		Encryptor enc = getEncryptor();
 		this.request = request;
 		this.response = response;
 		this.isSaved = false;
@@ -195,6 +194,7 @@ public class ClientSession implements HttpSession {
 	@Override
 	public String toString() {
 		try {
+			Encryptor enc = getEncryptor();
 			return Base64.encodeBase64String(enc.encrypt(Serializer.toKryo(value)));
 		} catch (Exception ex) {
 			logger.log(Level.SEVERE, "Export session failed", ex);
