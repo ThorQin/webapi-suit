@@ -15,3 +15,6 @@ webapi-archetype/.project
 webapi-archetype/.classpath
 webapi-archetype/.settings
 webapi-archetype/.DS_Store
+*.iml
+/.idea
+/webapi/.idea
